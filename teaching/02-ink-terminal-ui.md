@@ -1,0 +1,462 @@
+# 02 - 终端 UI 框架 (Ink)
+
+> **本章目标**：理解 Claude Code 如何使用 Ink（React for CLI）在终端中渲染界面，包括 Yoga 布局、自定义 reconciler、事件系统和组件架构。
+
+---
+
+## 1. 什么是 Ink？
+
+Ink 是一个**用 React 模型构建终端 UI** 的框架。核心思想：
+
+| Web React | Ink (终端) |
+|-----------|-----------|
+| `<div>` | `<Box>` (Flexbox 布局) |
+| `<span>` | `<Text>` |
+| CSS Flexbox | Yoga 布局引擎 (原生) |
+| DOM | 自定义虚拟 DOM |
+| 浏览器 reconciler | 自定义 reconciler |
+| `process.stdout` | 渲染目标 |
+
+Claude Code 对 Ink 做了大量定制，包括：
+- 自定义主题系统 (`ThemeProvider`)
+- 自定义 Yoga 布局的 native 实现
+- 终端能力查询系统
+- 焦点管理、键盘事件、终端通知
+
+---
+
+## 2. 渲染管线架构
+
+```
+React 组件树
+  │
+  ▼
+React Reconciler (reconciler.ts)
+  │ 创建/更新虚拟 DOM 节点
+  ▼
+DOM 树 (dom.ts) — DOMElement / TextNode
+  │
+  ▼
+Yoga 布局引擎 (native-ts/yoga-layout/)
+  │ 计算每个节点的位置和尺寸
+  ▼
+渲染器 (renderer.ts → render-node-to-output.ts)
+  │ 将布局树转为 ANSI 字符串
+  ▼
+终端输出 (termio/) — 写入 stdout
+```
+
+---
+
+## 3. 核心模块详解
+
+### 3.1 入口：`src/ink.ts`
+
+这是一个重导出文件，统一了 Ink 的 API 并注入主题：
+
+```typescript
+// 所有渲染都包裹 ThemeProvider
+function withTheme(node: ReactNode): ReactNode {
+  return createElement(ThemeProvider, null, node)
+}
+
+// createRoot 会自动包裹主题
+export async function createRoot(options?: RenderOptions): Promise<Root> {
+  const root = await inkCreateRoot(options)
+  return {
+    ...root,
+    render: node => root.render(withTheme(node)),
+  }
+}
+```
+
+对外暴露的组件：
+- `Box` → `ThemedBox`（带主题的 Flexbox 容器）
+- `Text` → `ThemedText`（带主题的文本）
+- `useTheme()` → 获取当前主题
+- `useInput()` → 键盘输入 hook
+
+### 3.2 自定义 Reconciler：`src/ink/reconciler.ts`
+
+使用 `react-reconciler` 创建了自定义的渲染器，将 React 的组件操作映射到终端 DOM：
+
+```typescript
+// 节点创建
+createInstance(type, props) → createNode(type, props)
+createTextInstance(text) → createTextNode(text)
+
+// 树操作
+appendChild(parent, child) → appendChildNode(parent, child)
+removeChild(parent, child) → removeChildNode(parent, child)
+insertBefore(parent, child, before) → insertBeforeNode(...)
+
+// 属性更新
+commitUpdate(node, oldProps, newProps) → setAttribute/setStyle(...)
+```
+
+### 3.3 虚拟 DOM：`src/ink/dom.ts`
+
+定义了终端专用的 DOM 节点类型：
+
+```typescript
+type DOMElement = {
+  nodeName: ElementNames           // 'box', 'text', 'root'
+  attributes: DOMNodeAttribute     // 样式和属性
+  style: Styles                    // Yoga 样式
+  yogaNode: Yoga.YogaNode          // Yoga 布局节点
+  childNodes: (DOMElement | TextNode)[]
+  // ...
+}
+
+type TextNode = {
+  nodeName: '#text'
+  textContent: string
+  yogaNode: Yoga.YogaNode
+  style: TextStyles
+}
+```
+
+### 3.4 Yoga 布局引擎
+
+Claude Code 用 **原生 Yoga**（C++ 编译的 native 模块）替代了 Ink 默认的 JavaScript 实现：
+
+```
+src/native-ts/yoga-layout/
+  └── index.ts  ← 原生 Yoga 绑定
+```
+
+Yoga 是 Facebook 开发的 Flexbox 布局引擎（也是 React Native 使用的），支持：
+- `flexDirection` (row/column)
+- `justifyContent` / `alignItems`
+- `padding` / `margin`
+- `width` / `height`
+
+### 3.5 渲染到终端：`src/ink/renderer.ts`
+
+渲染器遍历布局后的 DOM 树，将每个节点转为 ANSI 转义序列：
+
+```
+DOM 树 → renderNodeToOutput() → Output (ANSI 字符串) → stdout
+```
+
+支持的高级特性：
+- **边框渲染** (`render-border.ts`)
+- **文本换行** (`wrap-text.ts`, `wrapAnsi.ts`)
+- **ANSI 颜色** (`colorize.ts`)
+- **字符串宽度计算** (`stringWidth.ts`) — 处理 CJK 字符宽度
+- **搜索高亮** (`searchHighlight.ts`)
+
+---
+
+## 4. 终端 I/O 系统：`src/ink/termio/`
+
+这是与终端交互的底层模块：
+
+| 文件 | 功能 |
+|------|------|
+| `termio.ts` | 终端 I/O 管理器 |
+| `dec.ts` | DEC 私有模式控制（光标显隐、交替屏幕等） |
+| `terminal.ts` | 终端能力查询 |
+| `terminal-querier.ts` | 终端属性查询（颜色支持、Unicode 版本等） |
+
+### 4.1 交替屏幕模式
+
+Claude Code 使用终端的**交替屏幕缓冲区**，这样退出时可以恢复之前的终端内容：
+
+```typescript
+// DEC 私有模式
+SHOW_CURSOR = '\x1b[?25h'
+HIDE_CURSOR = '\x1b[?25l'
+ENTER_ALT_SCREEN = '\x1b[?1049h'
+EXIT_ALT_SCREEN = '\x1b[?1049l'
+```
+
+---
+
+## 5. 事件系统：`src/ink/events/`
+
+```
+src/ink/events/
+├── dispatcher.ts          ← 事件分发器
+├── event-handlers.ts      ← 事件处理器映射
+└── ...
+```
+
+Ink 的事件系统支持：
+- **键盘事件**：`onKeyPress`，通过 `parse-keypress.ts` 解析
+- **焦点事件**：`onFocus` / `onBlur`
+- **输入事件**：`useInput()` hook
+
+---
+
+## 6. Claude Code 的 UI 组件库
+
+### 6.1 设计系统
+
+```
+src/components/design-system/
+├── ThemedBox.tsx      ← 带主题的 Box
+├── ThemedText.tsx     ← 带主题的 Text
+├── ThemeProvider.tsx  ← 主题上下文
+└── color.ts          ← 颜色系统
+```
+
+### 6.2 核心交互组件
+
+| 组件 | 路径 | 功能 |
+|------|------|------|
+| `PromptInput` | `components/PromptInput/` | 用户输入框（支持多行、Vim 模式） |
+| `PermissionRequest` | `components/permissions/` | 权限确认对话框 |
+| `Spinner` | `components/Spinner.js` | 加载动画 |
+| `VirtualMessageList` | `components/` | 虚拟滚动消息列表 |
+| `CustomSelect` | `components/CustomSelect/` | 自定义选择器 |
+
+### 6.3 PromptInput（输入框）
+
+Claude Code 的输入框是一个复杂的组件，支持：
+
+- **多行编辑** — Enter 换行，特定快捷键提交
+- **Vim 模式** — normal/insert/visual 模式
+- **历史导航** — 上下箭头浏览历史
+- **Tab 补全** — 文件路径和命令补全
+- **@ 文件引用** — 粘贴文件内容
+- **/ 命令触发** — 斜杠命令列表
+
+---
+
+## 7. Hooks（React Hooks）
+
+```
+src/hooks/
+├── useCanUseTool.ts           ← 工具权限检查
+├── useSearchInput.ts          ← 搜索输入
+├── useTerminalSize.ts         ← 终端尺寸变化
+├── useSettingsChange.ts       ← 设置变更监听
+├── useIdeLogging.ts           ← IDE 日志
+├── toolPermission/            ← 工具权限处理
+│   └── handlers/              ← 各种权限处理器
+└── notifs/                    ← 通知 hooks
+```
+
+### 7.1 `useInput` — 键盘输入
+
+这是最基础的 hook，监听终端的键盘事件：
+
+```typescript
+// src/ink/hooks/use-input.ts
+useInput((input, key) => {
+  if (key.escape) handleEscape()
+  if (key.return) handleSubmit()
+  if (key.upArrow) handleHistoryUp()
+  // ...
+})
+```
+
+### 7.2 `useTerminalSize` — 终端尺寸
+
+监听终端窗口大小变化，触发布局重计算：
+
+```typescript
+// 终端 resize → Yoga 重新布局 → 重新渲染
+const { columns, rows } = useTerminalSize()
+```
+
+---
+
+## 8. React Compiler 优化
+
+Claude Code 使用了 **React Compiler**（原 React Forget），源码中可以看到编译器的产物：
+
+```typescript
+// 编译前的源码（推断）
+export function App({ getFpsMetrics, stats, initialState, children }) {
+  return (
+    <FpsMetricsProvider getFpsMetrics={getFpsMetrics}>
+      <StatsProvider store={stats}>
+        <AppStateProvider initialState={initialState}>
+          {children}
+        </AppStateProvider>
+      </StatsProvider>
+    </FpsMetricsProvider>
+  )
+}
+
+// 编译后的代码（实际看到）
+export function App(t0) {
+  const $ = _c(9);  // React Compiler 的缓存槽
+  const { getFpsMetrics, stats, initialState, children } = t0;
+
+  let t1;
+  if ($[0] !== children || $[1] !== initialState) {
+    t1 = <AppStateProvider ...>{children}</AppStateProvider>;
+    $[0] = children;
+    $[1] = initialState;
+  } else {
+    t1 = $[2]; // 命中缓存，跳过重建
+  }
+  // ...
+}
+```
+
+编译器自动插入了 `useMemo`/`useCallback` 级别的优化，避免不必要的重渲染。
+
+---
+
+## 9. 关键代码
+
+### 9.1 创建渲染根
+
+```typescript
+// src/ink/root.ts:30
+export async function createRoot(options: RenderOptions = {}): Promise<Root> {
+  // 1. 创建 React Reconciler
+  const reconciler = createReconciler({
+    appendChild,
+    removeChild,
+    insertBefore,
+    createInstance,
+    createTextInstance,
+    commitUpdate,
+  })
+
+  // 2. 创建容器
+  const container = createContainer()
+
+  // 3. 创建根节点
+  const root = reconciler.createRoot(container)
+
+  // 4. 返回 Root 接口
+  return {
+    render: (node: ReactNode) => {
+      const themedNode = createElement(ThemeProvider, null, node)
+      reconciler.update(themedNode, root)
+    },
+    unmount: () => reconciler.destroy(root),
+  }
+}
+```
+
+### 9.2 自定义 Reconciler
+
+```typescript
+// src/ink/reconciler.ts:50
+function createReconciler(config: ReconcilerConfig) {
+  return reconciler({
+    appendChild(parent, child) {
+      appendChildNode(parent, child)
+    },
+
+    createInstance(type, props) {
+      return createNode(type, props)
+    },
+
+    createTextInstance(text) {
+      return createTextNode(text)
+    },
+
+    commitUpdate(node, oldProps, newProps) {
+      if (node.nodeName === '#text') {
+        updateTextContent(node, newProps)
+      } else {
+        updateNodeAttributes(node, oldProps, newProps)
+      }
+    },
+  })
+}
+```
+
+### 9.3 虚拟 DOM 节点
+
+```typescript
+// src/ink/dom.ts:30
+export interface DOMElement {
+  nodeName: ElementNames  // 'box' | 'text' | 'root'
+  attributes: DOMNodeAttribute
+  style: Styles
+  yogaNode: Yoga.YogaNode  // Yoga 布局节点
+  childNodes: (DOMElement | TextNode)[]
+}
+
+export function createNode(type: string, props: NodeProps): DOMElement {
+  return {
+    nodeName: type,
+    attributes: {},
+    style: parseStyle(props.style || {}),
+    yogaNode: Yoga.NodeBuilder.create(),
+    childNodes: [],
+  }
+}
+```
+
+### 9.4 渲染到终端
+
+```typescript
+// src/ink/renderer.ts:50
+export function renderToOutput(
+  root: DOMElement,
+  terminalWidth: number,
+  terminalHeight: number
+): string {
+  // 1. 计算 Yoga 布局
+  root.yogaNode.calculateLayout(
+    terminalWidth,
+    terminalHeight,
+    Yoga.DIRECTION_LTR
+  )
+
+  // 2. 递归渲染节点为 ANSI 字符串
+  return renderNode(root, { x: 0, y: 0 })
+}
+```
+
+### 9.5 终端 I/O
+
+```typescript
+// src/ink/termio/termio.ts:30
+export class TermIO {
+  enableRawMode(): void {
+    this.originalStty = tty.setRawMode()
+  }
+
+  disableRawMode(): void {
+    if (this.originalStty) {
+      tty.restore(this.originalStty)
+    }
+  }
+
+  write(output: string): void {
+    process.stdout.write(ansiProcessor.process(output))
+  }
+}
+```
+
+---
+
+## 10. 关键文件索引
+
+| 文件 | 作用 |
+|------|------|
+| `src/ink.ts` | Ink API 统一入口（注入主题） |
+| `src/ink/root.ts` | `createRoot` / `render` 实现 |
+| `src/ink/reconciler.ts` | React 自定义 reconciler |
+| `src/ink/dom.ts` | 虚拟 DOM 节点定义 |
+| `src/ink/renderer.ts` | 渲染器（DOM → ANSI） |
+| `src/ink/termio/` | 终端 I/O 底层 |
+| `src/native-ts/yoga-layout/` | 原生 Yoga 布局引擎 |
+| `src/components/design-system/` | 主题和设计系统 |
+| `src/hooks/` | React Hooks |
+
+---
+
+## 练习
+
+1. **追踪渲染**：从 `src/ink/root.ts` 的 `createRoot()` 开始，追踪到 `reconciler.ts`，理解 React 组件如何变成终端 DOM
+2. **理解 Yoga**：阅读 `src/ink/dom.ts` 中的 `setStyle()` 函数，看哪些 CSS 属性被映射到 Yoga
+3. **主题系统**：阅读 `ThemeProvider.tsx`，理解主题如何影响 `ThemedBox` 和 `ThemedText`
+4. **终端能力检测**：阅读 `src/ink/terminal-querier.ts`，看它如何检测终端是否支持真彩色、Unicode 等
+
+---
+
+## 下一篇
+
+👉 [03-tool-system.md](./03-tool-system.md) — 工具系统的完整实现

@@ -1,0 +1,508 @@
+# 03 - 工具系统
+
+> **本章目标**：理解 Claude Code 工具系统的完整架构——从 `Tool` 接口定义、30+ 工具的注册机制、工具 prompt 设计，到具体工具（Bash、FileEdit、Agent）的实现。
+
+---
+
+## 1. 工具系统总览
+
+Claude Code 的工具是模型与外部世界交互的唯一通道。每当 Claude 模型决定执行操作时，它会返回一个 `tool_use` 块，由工具执行引擎调度到对应的工具实现。
+
+```
+Claude 模型响应
+  │ 返回 tool_use 块 { name: "Bash", input: { command: "ls" } }
+  ▼
+工具执行引擎 (services/tools/toolExecution.ts)
+  │ 匹配工具名 → 查找 BashTool
+  ▼
+权限检查 (hooks/useCanUseTool.ts)
+  │ 用户已允许？→ 是
+  ▼
+BashTool.call(input, context)
+  │ 执行 shell 命令
+  ▼
+返回 ToolResult { data: "file1\nfile2\n..." }
+  │
+  ▼
+构建 tool_result 消息 → 发回 Claude API
+```
+
+---
+
+## 2. Tool 接口定义
+
+文件：`src/Tool.ts:362-530+`
+
+### 2.1 核心接口
+
+```typescript
+export type Tool<Input, Output, P> = {
+  // === 身份 ===
+  readonly name: string                    // 工具唯一名称
+  aliases?: string[]                       // 别名（兼容旧名）
+  searchHint?: string                      // ToolSearch 关键词提示
+
+  // === 模型接口 ===
+  prompt(options): Promise<string>         // 返回给模型的工具描述
+  description(input, options): Promise<string>  // 运行时描述（含动态信息）
+  readonly inputSchema: AnyObject          // Zod 输入 schema
+  outputSchema?: z.ZodType<unknown>        // Zod 输出 schema
+
+  // === 执行 ===
+  call(args, context, canUseTool, parentMessage, onProgress?): Promise<ToolResult<Output>>
+
+  // === 权限与安全 ===
+  checkPermissions(input, context): Promise<PermissionResult>
+  validateInput?(input, context): Promise<ValidationResult>
+  isReadOnly(input): boolean               // 是否只读
+  isDestructive?(input): boolean           // 是否破坏性操作
+  isConcurrencySafe(input): boolean        // 是否可并发执行
+
+  // === 启用控制 ===
+  isEnabled(): boolean                     // 当前环境是否可用
+
+  // === UI ===
+  userFacingName(input): string            // 用户可见名称
+  maxResultSizeChars: number               // 结果最大字符数
+
+  // === 其他 ===
+  interruptBehavior?(): 'cancel' | 'block' // 被中断时的行为
+  isMcp?: boolean                          // 是否 MCP 工具
+  mcpInfo?: { serverName; toolName }       // MCP 元信息
+}
+```
+
+### 2.2 ToolUseContext
+
+每个工具调用时都会收到一个 `ToolUseContext`，包含：
+
+```typescript
+type ToolUseContext = {
+  options: {
+    commands: Command[]           // 可用命令列表
+    tools: Tools                  // 所有工具列表
+    mainLoopModel: string         // 当前模型
+    mcpClients: MCPServerConnection[]  // MCP 客户端
+    isNonInteractiveSession: boolean   // 是否非交互
+    // ...
+  }
+  abortController: AbortController     // 取消控制器
+  messages: Message[]                   // 当前消息列表
+  getAppState(): AppState              // 读取应用状态
+  setAppState(f): void                 // 更新应用状态
+  setToolJSX?: SetToolJSXFn           // 设置工具 UI 组件
+  // ...
+}
+```
+
+### 2.3 ToolResult
+
+```typescript
+type ToolResult<T> = {
+  data: T                              // 工具返回数据
+  newMessages?: Message[]              // 工具可以注入新消息
+  contextModifier?: (ctx) => ctx       // 修改后续上下文
+}
+```
+
+---
+
+## 3. 工具注册表
+
+文件：`src/tools.ts`
+
+### 3.1 getAllBaseTools()
+
+这是**所有内置工具的注册表**，返回一个 `Tool[]` 数组：
+
+```typescript
+export function getAllBaseTools(): Tools {
+  return [
+    AgentTool,           // 子 Agent 调度
+    TaskOutputTool,      // 后台任务输出
+    BashTool,            // Shell 命令
+    // 嵌入式搜索工具可用时，不加载 Glob/Grep
+    ...(hasEmbeddedSearchTools() ? [] : [GlobTool, GrepTool]),
+    ExitPlanModeV2Tool,  // 退出计划模式
+    FileReadTool,        // 读取文件
+    FileEditTool,        // 编辑文件
+    FileWriteTool,       // 写入文件
+    NotebookEditTool,    // 编辑 Notebook
+    WebFetchTool,        // 网页抓取
+    TodoWriteTool,       // 任务列表
+    WebSearchTool,       // 网页搜索
+    TaskStopTool,        // 停止任务
+    AskUserQuestionTool, // 询问用户
+    SkillTool,           // 技能调用
+    EnterPlanModeTool,   // 进入计划模式
+    // 条件加载的工具
+    ...(isTodoV2Enabled() ? [TaskCreateTool, ...] : []),
+    ...(isWorktreeModeEnabled() ? [EnterWorktreeTool, ExitWorktreeTool] : []),
+    getSendMessageTool(),  // Agent 间消息
+    ...(isAgentSwarmsEnabled() ? [TeamCreateTool, TeamDeleteTool] : []),
+    BriefTool,            // 发送 brief
+    ListMcpResourcesTool, // MCP 资源列表
+    ReadMcpResourceTool,  // MCP 资源读取
+    ...(isToolSearchEnabledOptimistic() ? [ToolSearchTool] : []),
+  ]
+}
+```
+
+### 3.2 getTools() — 过滤后的工具列表
+
+```typescript
+export function getTools(permissionContext): Tools {
+  // Simple 模式：只返回 Bash + Read + Edit
+  if (isEnvTruthy(process.env.CLAUDE_CODE_SIMPLE)) {
+    return filterToolsByDenyRules([BashTool, FileReadTool, FileEditTool], ...)
+  }
+
+  // 获取所有工具，过滤特殊工具和 deny 规则
+  const tools = getAllBaseTools().filter(...)
+  return filterToolsByDenyRules(tools, permissionContext)
+}
+```
+
+### 3.3 assembleToolPool() — 合并内置 + MCP 工具
+
+```typescript
+export function assembleToolPool(permissionContext, mcpTools): Tools {
+  const builtInTools = getTools(permissionContext)
+  const allowedMcpTools = filterToolsByDenyRules(mcpTools, permissionContext)
+  // 去重（内置优先），按名称排序（为了 prompt cache 稳定性）
+  return uniqBy(
+    [...builtInTools].sort(byName).concat(allowedMcpTools.sort(byName)),
+    'name'
+  )
+}
+```
+
+---
+
+## 4. 核心 Tool Prompt 设计
+
+每个工具的 `prompt()` 方法返回给模型的**工具描述**。这是 Claude 模型决定何时、如何使用工具的关键信息。
+
+### 4.1 BashTool 的 prompt
+
+文件：`src/tools/BashTool/prompt.ts`
+
+```
+Executes a given bash command and returns its output.
+
+- Long-running commands timeout after Xms
+- Commands run in the current working directory
+- Shell state persists between calls
+- Important: validate commands are safe...
+```
+
+Prompt 设计原则：
+- **简洁但完整**：描述功能、限制、注意事项
+- **安全引导**：提醒模型避免危险操作
+- **行为约束**：说明超时、沙箱等限制
+- **最佳实践**：引导模型使用高效的命令模式
+
+### 4.2 FileEditTool 的 prompt
+
+```
+Performs exact string replacements in files.
+
+- You must use your Read tool first...
+- old_string must be unique in the file
+- prefer editing existing files over creating new ones
+...
+```
+
+### 4.3 Prompt Cache 稳定性
+
+工具 prompt 的顺序和内容直接影响 Anthropic API 的**提示缓存**命中率。因此：
+- 工具按名称排序
+- prompt 内容在不同用户间保持一致
+- MCP 工具排在内置工具后面
+
+---
+
+## 5. 典型工具实现分析
+
+### 5.1 BashTool — 最复杂的工具
+
+文件：`src/tools/BashTool/`
+
+```
+BashTool/
+├── BashTool.tsx        ← 工具主体（~800行）
+├── prompt.ts           ← 模型描述
+├── toolName.ts         ← 工具名常量
+├── bashPermissions.ts  ← 权限匹配逻辑
+├── bashSecurity.ts     ← 安全检查
+├── commandSemantics.ts ← 命令语义分析
+├── readOnlyValidation.ts ← 只读验证
+├── sedEditParser.ts    ← sed 编辑解析
+├── shouldUseSandbox.ts ← 沙箱决策
+├── modeValidation.ts   ← 模式验证
+├── pathValidation.ts   ← 路径验证
+├── destructiveCommandWarning.ts ← 危险命令警告
+├── utils.ts            ← 辅助函数
+└── UI.tsx              ← 工具 UI 渲染
+```
+
+**BashTool.call() 核心流程**：
+
+```
+call(input, context)
+  ├── parseForSecurity(command)    ← 安全解析
+  ├── checkReadOnlyConstraints()   ← 只读约束检查
+  ├── shouldUseSandbox(command)    ← 是否需要沙箱
+  ├── bashToolHasPermission()      ← 权限检查
+  ├── canUseTool()                 ← 用户确认（如果需要）
+  ├── exec(command, options)       ← 实际执行 shell
+  │   ├── 检测超时
+  │   ├── 捕获 stdout/stderr
+  │   └── 返回 ExecResult
+  ├── interpretCommandResult()     ← 结果语义分析
+  └── 返回 ToolResult
+```
+
+**命令分类**（用于 UI 折叠显示）：
+- `BASH_SEARCH_COMMANDS` — grep, rg, find 等（标记为搜索操作）
+- `BASH_READ_COMMANDS` — cat, head, tail 等（标记为读取操作）
+- `BASH_LIST_COMMANDS` — ls, tree, du 等（标记为列表操作）
+
+### 5.2 FileEditTool — 精确编辑
+
+文件：`src/tools/FileEditTool/`
+
+```typescript
+// 输入 schema
+const schema = z.object({
+  file_path: z.string(),
+  old_string: z.string(),
+  new_string: z.string(),
+  replace_all: z.boolean().default(false),
+})
+
+// call() 流程
+call(input) {
+  // 1. 读取文件内容
+  // 2. 查找 old_string 的位置
+  // 3. 替换为 new_string
+  // 4. 写回文件
+  // 5. 返回差异信息
+}
+```
+
+### 5.3 AgentTool — 子 Agent 调度
+
+文件：`src/tools/AgentTool/`
+
+这是最复杂的工具之一，支持**多 Agent 协作**：
+
+```
+AgentTool/
+├── AgentTool.ts        ← 工具主体
+├── runAgent.ts         ← Agent 运行逻辑
+├── forkSubagent.ts     ← fork 模式（共享上下文）
+├── resumeAgent.ts      ← 恢复已有 Agent
+├── loadAgentsDir.ts    ← 加载 Agent 定义
+├── builtInAgents.ts    ← 内置 Agent 定义
+├── agentMemory.ts      ← Agent 记忆
+├── agentDisplay.ts     ← Agent 显示
+├── agentColorManager.ts ← Agent 颜色管理
+└── prompt.ts           ← 模型描述
+```
+
+---
+
+## 6. 工具执行引擎
+
+文件：`src/services/tools/`
+
+### 6.1 执行流程
+
+```
+toolExecution.ts
+  │ 接收 tool_use 块
+  ├── 1. findToolByName() — 匹配工具
+  ├── 2. tool.validateInput() — 参数验证
+  ├── 3. canUseTool() — 权限检查
+  │     ├── pre-tool hooks
+  │     ├── classifier 检查
+  │     └── 用户确认对话框（如果需要）
+  ├── 4. tool.call() — 执行工具
+  ├── 5. post-tool hooks
+  └── 6. 返回 tool_result
+```
+
+### 6.2 StreamingToolExecutor
+
+文件：`src/services/tools/StreamingToolExecutor.ts`
+
+支持**流式输出**的工具执行器——工具在执行过程中可以逐步向用户显示进度：
+
+```
+StreamingToolExecutor
+  ├── 开始执行
+  ├── onProgress 回调 → UI 更新
+  ├── 结果逐步构建
+  └── 完成时返回完整结果
+```
+
+### 6.3 工具 Hooks
+
+文件：`src/services/tools/toolHooks.ts`
+
+在工具执行前后运行的钩子系统：
+- **PreToolUse hooks** — 在工具调用前执行（可拒绝/修改）
+- **PostToolUse hooks** — 在工具调用后执行（可修改结果）
+
+---
+
+## 7. 工具 Prompt 的缓存策略
+
+Claude Code 对工具 prompt 做了精心优化以最大化 API 缓存命中：
+
+1. **排序稳定**：工具按名称排序，确保不同用户间一致
+2. **内置在前**：内置工具作为连续前缀，MCP 工具在后
+3. **条件工具**：只在特定条件下加载的工具用 `feature()` 控制
+4. **延迟加载**：`ToolSearchTool` 可将不常用工具延迟加载
+
+---
+
+## 8. 工具分类速查
+
+| 类别 | 工具 | 特点 |
+|------|------|------|
+| **文件操作** | FileRead, FileEdit, FileWrite, NotebookEdit | 路径验证、权限检查、文件历史 |
+| **搜索** | Glob, Grep, Bash (grep/find) | 只读、可折叠显示 |
+| **执行** | Bash, PowerShell | 沙箱、超时、安全检查 |
+| **网络** | WebFetch, WebSearch | URL 预批准、内容限制 |
+| **Agent** | Agent, SendMessage, TeamCreate/Delete | 多 Agent 协作 |
+| **任务** | TaskCreate/Get/Update/List/Stop/Output | 任务管理 |
+| **计划** | EnterPlanMode, ExitPlanMode | 计划模式切换 |
+| **交互** | AskUserQuestion | 询问用户输入 |
+| **MCP** | MCPTool, ListMcpResources, ReadMcpResource | 外部服务集成 |
+| **系统** | Config, Skill, TodoWrite, Brief | 配置/技能/任务 |
+
+---
+
+## 9. 关键代码
+
+### 9.1 Tool 接口核心定义
+
+```typescript
+// src/Tool.ts:362
+export type Tool<Input, Output, P = unknown> = {
+  // === 身份标识 ===
+  readonly name: string                    // 工具唯一名称，如 "Bash"
+  aliases?: string[]                      // 别名列表
+
+  // === 模型接口 ===
+  readonly inputSchema: AnyObject        // Zod 输入 schema
+  prompt(options: ToolPromptOptions): Promise<string>
+  description(input: Input, options: ToolPromptOptions): Promise<string>
+
+  // === 执行接口 ===
+  call(
+    args: Input,
+    context: ToolUseContext,
+    canUseTool: CanUseToolFn,
+    parentMessage?: Message,
+    onProgress?: (progress: Progress) => void
+  ): Promise<ToolResult<Output>>
+
+  // === 权限与安全 ===
+  isReadOnly(input: Input): boolean
+  isConcurrencySafe(input: Input): boolean
+  isEnabled(): boolean
+
+  // === UI ===
+  userFacingName(input: Input): string
+  maxResultSizeChars: number
+}
+```
+
+### 9.2 工具注册表示例
+
+```typescript
+// src/tools.ts:50
+export function getAllBaseTools(): Tools {
+  return [
+    AgentTool,
+    TaskOutputTool,
+    BashTool,
+    // 搜索工具有条件加载
+    ...(hasEmbeddedSearchTools() ? [] : [GlobTool, GrepTool]),
+    ExitPlanModeV2Tool,
+    FileReadTool,
+    FileEditTool,
+    FileWriteTool,
+    WebFetchTool,
+    WebSearchTool,
+    // 更多工具...
+  ]
+}
+```
+
+### 9.3 工具池组装
+
+```typescript
+// src/tools.ts:200
+export function assembleToolPool(permissionContext, mcpTools): Tools {
+  // 1. 获取内置工具
+  const builtInTools = getTools(permissionContext)
+
+  // 2. 过滤 MCP 工具
+  const allowedMcpTools = filterToolsByDenyRules(mcpTools, permissionContext)
+
+  // 3. 合并、去重、按名称排序
+  return uniqBy(
+    [...builtInTools, ...allowedMcpTools].sort(byName),
+    'name'
+  )
+}
+```
+
+### 9.4 ToolResult 类型
+
+```typescript
+// src/Tool.ts:100
+type ToolResult<T> = {
+  success: boolean
+  data?: T
+  error?: string
+  newMessages?: Message[]           // 工具可注入新消息
+  contextModifier?: (ctx) => ctx    // 可修改后续上下文
+}
+```
+
+---
+
+## 10. 关键文件索引
+
+| 文件 | 作用 |
+|------|------|
+| `src/Tool.ts` | 工具接口定义 |
+| `src/tools.ts` | 工具注册表 |
+| `src/services/tools/toolExecution.ts` | 执行引擎 |
+| `src/services/tools/StreamingToolExecutor.ts` | 流式执行器 |
+| `src/services/tools/toolHooks.ts` | 工具钩子 |
+| `src/services/tools/toolOrchestration.ts` | 工具编排 |
+| `src/tools/BashTool/` | Bash 工具实现 |
+| `src/tools/FileEditTool/` | 文件编辑实现 |
+| `src/tools/AgentTool/` | Agent 工具实现 |
+| `src/tools/MCPTool/` | MCP 工具桥接 |
+
+---
+
+## 练习
+
+1. **工具接口**：阅读 `src/Tool.ts` 的 `Tool` 类型定义，列出所有方法并理解其用途
+2. **注册表分析**：在 `src/tools.ts` 的 `getAllBaseTools()` 中，找出哪些工具有条件加载，条件是什么
+3. **BashTool 深入**：阅读 `src/tools/BashTool/bashPermissions.ts`，理解命令匹配规则
+4. **Prompt 设计**：对比 BashTool 和 FileEditTool 的 `prompt.ts`，分析它们如何引导模型正确使用
+
+---
+
+## 下一篇
+
+👉 [04-tool-execution.md](./04-tool-execution.md) — 工具执行与安全机制
