@@ -524,53 +524,102 @@ import { executePostCompactHooks, executePreCompactHooks } from '../../utils/hoo
 
 ### 练习 1：追踪一次自动压缩
 
-目标：理解从 token 超限到压缩完成的完整流程。
+**类比 Java**：这类似于 Hibernate 一级缓存的 flush 策略——当缓存满时触发 flush，清理旧数据。
 
-场景：对话进行中，token 使用量达到 187,000（200K 窗口）。
+**场景**：token 使用量达到 187,000（200K 窗口）
 
-步骤：
-1. 阅读 `autoCompact.ts` 中的 `getAutoCompactThreshold()` — 确认阈值计算
-2. 阅读 `calculateTokenWarningState()` — 确认状态判断
-3. 追踪 `autoCompactIfNeeded()` → `compactConversation()` 的调用链
-4. 在 `compact.ts` 中找到 `groupMessagesByApiRound()` 的调用
-5. 追踪摘要消息的生成和 `buildPostCompactMessages()` 的构建
+**答案**：
 
-思考题：为什么自动压缩的缓冲区是 13,000 token 而不是更大或更小？
+1. **阈值计算**：`200,000 - 13,000 = 187,000` 触发压缩
+
+2. **状态判断**：`percentLeft = 1 - 187000/200000 = 6.5%` < 10%，显示警告
+
+3. **调用链**：`autoCompactIfNeeded()` → `trySessionMemoryCompact()` 或 `compactConversation()`
+
+4. **分组**：`groupMessagesByApiRound()` 将消息按 API 轮次分组
+
+5. **构建**：`buildPostCompactMessages()` 生成压缩后的消息列表
+
+**思考题答案**：
+13,000 buffer 是权衡：
+- **太小**：压缩太频繁，AI 摘要开销大
+- **太大**：接近 limit，API 可能直接拒绝
 
 ### 练习 2：MicroCompact vs Full Compact
 
-目标：理解两种压缩策略的适用场景和实现差异。
+**类比 Java**：这类似于 MyBatis 一级缓存 vs 二级缓存的策略差异。
 
-1. 阅读 `microCompact.ts` 中的 `estimateMessageTokens()` 和工具结果清理逻辑
-2. 阅读 `compact.ts` 中的 AI 摘要生成逻辑
-3. 对比两种策略在以下场景的效果：
-   - 用户读取了 20 个文件（每个 5000 字符），然后问了一个新问题
-   - 用户进行了长时间对话，话题已经切换了 3 次
+**场景分析**：
 
-思考题：MicroCompact 什么时候会退化为无效操作？
+| 场景 | MicroCompact | Full Compact |
+|------|-------------|-------------|
+| 读取 20 个文件后问新问题 | 清理旧文件读取结果 | 生成对话摘要 |
+| 话题切换 3 次 | 清理旧的搜索结果 | 理解话题演进 |
+
+**思考题答案**：
+MicroCompact 退化为无效操作的情况：
+- 所有工具结果都已很小（无内容可清理）
+- 用户刚开启新对话（无"旧"结果）
 
 ### 练习 3：Session Memory Compact 分析
 
-目标：理解基于会话记忆的压缩策略。
+**答案**：
 
-1. 阅读 `sessionMemoryCompact.ts` 中的 `trySessionMemoryCompaction()`
-2. 分析 `getSessionMemoryContent()` 和 `waitForSessionMemoryExtraction()` 的关系
-3. 对比三种压缩策略的优缺点
+| 策略 | 优点 | 缺点 |
+|------|------|------|
+| Session Memory | 快（无 AI 调用）、可靠 | 信息可能丢失 |
+| Full Compact | 信息保留完整 | 慢、依赖 AI |
 
-思考题：会话记忆压缩和 AI 摘要压缩在信息保留上有什么本质区别？
+**本质区别**：
+- Session Memory：用外部文件替代历史，可能丢失细节
+- Full Compact：用 AI 摘要替代历史，保留结构化信息
 
 ### 练习 4：上下文窗口管理
 
-目标：理解模型上下文窗口的配置和限制。
+**答案**：
 
-1. 阅读 `context.ts` 中的 `getContextWindowForModel()`
-2. 追踪 `CLAUDE_CODE_DISABLE_1M_CONTEXT` 环境变量的作用
-3. 阅读 `autoCompact.ts` 中的 `getEffectiveContextWindowSize()` — 理解为什么有效窗口小于总窗口
+1. **配置优先级**：`CLAUDE_CODE_MAX_CONTEXT_TOKENS` > `getModelCapability()` > 默认 200K
 
-思考题：如果模型输出 token 预留设得太小，会出现什么问题？
+2. **有效窗口 = 总窗口 - 输出预留**（约 180K 用于输入）
+
+3. **预留太小的问题**：
+   - 输出被截断
+   - 响应不完整
+   - API 可能报错
+
+**Java 对比**：
+```java
+// Java 堆内存 vs 上下文窗口
+int maxHeap = Runtime.getRuntime().maxMemory();  // 总堆
+int reserved = 20_000;                          // 预留（类似输出预留）
+int effective = maxHeap - reserved;               // 有效堆
+```
+
+---
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | buffer 13K = 平衡压缩频率和 API 成功率 |
+| 2 | MicroCompact 无旧内容时无效 |
+| 3 | Session Memory 快但可能丢信息 |
+| 4 | 预留太小 → 输出截断/响应不完整 |
+
+---
+
+## 上下文管理 vs Java 缓存
+
+| 方面 | Claude Code | Java |
+|------|-------------|------|
+| 容量管理 | Token 计数 | 字节计数 |
+| 淘汰策略 | 时间 + 阈值 | LRU/LFU |
+| 压缩方式 | AI 摘要/Micro | 无等价 |
+| 持久化 | 会话记忆文件 | 二级缓存 |
+| 刷新 | 自动/手动 | flushMode |
 
 ---
 
 ## 下一篇
 
-[下一章：MCP 集成 (MCP Integration) →](07-mcp-integration.md)
+👉 [07-mcp-integration.md](./07-mcp-integration.md) — MCP 协议集成

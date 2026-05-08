@@ -464,10 +464,119 @@ function startDeferredPrefetches(): void {
 
 ## 练习
 
-1. **追踪启动时间**：搜索 `profileCheckpoint` 调用，列出所有埋点位置
-2. **理解 Feature Flag**：搜索 `feature('XXX')` 模式（需先 import { feature } from 'bun:bundle'），列出所有条件加载的模块
-3. **追踪 CLI 参数**：在 `main.tsx` 中找到 Commander.js 的 `.option()` 调用，列出所有支持的参数
-4. **理解迁移系统**：阅读 `src/migrations/` 目录，理解数据迁移的工作方式
+### 练习 1：追踪启动时间
+
+**类比 Java**：这类似于 Spring Boot 的 `ApplicationRunner` 和 `CommandLineRunner` 接口——在应用启动的不同阶段埋点计时。
+
+**答案**：
+
+搜索 `profileCheckpoint` 可以找到所有埋点。关键埋点：
+- `main_tsx_entry` — 模块加载开始
+- `cli_parsing_complete` — CLI 解析完成
+- `init_complete` — 初始化完成
+- `auth_complete` — 认证完成
+- `repl_ready` — REPL 渲染完成
+
+**Java 对比**：
+```java
+// Spring Boot 的启动监听
+@Component
+public class StartupListener implements ApplicationRunner {
+    @Override
+    public void run(ApplicationArguments args) {
+        // 类似 profileCheckpoint
+        long start = System.currentTimeMillis();
+        // 初始化工作
+        log.info("初始化耗时: {}ms", System.currentTimeMillis() - start);
+    }
+}
+```
+
+### 练习 2：理解 Feature Flag
+
+**答案**：
+
+`feature('XXX')` 模式用于条件编译。常见 Feature Flag：
+
+| Flag | 功能 | Java 类比 |
+|------|------|-----------|
+| `COORDINATOR_MODE` | 协调者模式 | Spring Profile |
+| `DIRECT_CONNECT` | Direct Connect | 功能开关 |
+| `SPEAK_MODE` | 语音模式 | Feature Toggle |
+
+**实现原理**：
+```typescript
+// Bun 的 feature flag 在构建时静态分析
+import { feature } from 'bun:bundle'
+
+// 编译时确定，不会打包未使用的模块
+const module = feature('FEATURE_X')
+  ? require('./feature-x.js')
+  : null
+```
+
+**Java 对比**：
+```java
+// Spring @Conditional 注解
+@ConditionalOnProperty(name = "feature.x.enabled", havingValue = "true")
+@Configuration
+class FeatureXConfig { }
+```
+
+### 练习 3：追踪 CLI 参数
+
+**答案**：
+
+主要 CLI 参数（`main.tsx`）：
+
+| 参数 | 功能 | Java 类比 |
+|------|------|-----------|
+| `-p, --print` | 非交互打印模式 | `spring.batch.job.names` |
+| `--model <model>` | 指定模型 | `--spring.profiles.active` |
+| `--resume [sessionId]` | 恢复会话 | Hibernate Session reconnect |
+| `--allowedTools <tools>` | 允许的工具 | Spring Security path-based access |
+| `--disallowedTools <tools>` | 禁止的工具 | Spring Security deny-all |
+| `--add-mcp-server` | 添加 MCP 服务器 | JDBC Driver registration |
+| `--claude-code-dir` | 配置目录 | `--spring.config.location` |
+
+### 练习 4：理解迁移系统
+
+**答案**：
+
+迁移系统类似于 Hibernate 的 `MigrationStrategy` 或 Flyway：
+
+| 方面 | Claude Code | Hibernate/Flyway |
+|------|-------------|-----------------|
+| 版本控制 | `migrationVersion` | `schema_version` 表 |
+| 执行时机 | 启动时 | SessionFactory 创建时 |
+| 迁移内容 | 设置升级、配置迁移 | 表结构变更 |
+| 迁移文件 | `src/migrations/` | `V1__init.sql` |
+
+---
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | profileCheckpoint 埋点：main_tsx_entry, init_complete, repl_ready 等 |
+| 2 | feature('FLAG') 用于条件编译，类似 Spring @Conditional |
+| 3 | -p=打印模式, --model=模型, --resume=恢复会话 |
+| 4 | 迁移系统在 src/migrations/，类似 Flyway 增量迁移 |
+
+---
+
+## 启动流程 vs Java Spring
+
+| 方面 | Claude Code | Java Spring |
+|------|-------------|-------------|
+| 入口 | main.tsx | main() + @SpringBootApplication |
+| 模块加载 | 135ms import 阶段 | 类路径扫描 |
+| 初始化 | init() memoize | @PostConstruct / InitializingBean |
+| 预连接 | preconnectAnthropicApi() | HikariCP 预连接 |
+| 后台预取 | startDeferredPrefetches() | @Async 异步初始化 |
+| 配置 | settings.json | application.yml |
+| 迁移 | src/migrations/ | Flyway/Liquibase |
+| Feature Flag | bun:bundle feature() | @Conditional |
 
 ---
 

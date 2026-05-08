@@ -358,47 +358,140 @@ Hook 加载是原子的：先 `clearRegisteredPluginHooks()`，再 `registerHook
 
 ### 练习 1：创建自定义 Skill
 
-在项目目录创建 `.claude/skills/my-skill/SKILL.md`：
+**类比 Java**：Skill 类似于 Spring 的 `@Bean` 定义——声明式注册，通过名称调用。
 
+**答案**：
+
+创建 Skill 的步骤：
+
+1. **创建文件**：`.claude/skills/my-skill/SKILL.md`
+2. **定义 frontmatter**：
 ```markdown
 ---
-description: 一个示例自定义 skill
+description: 项目结构分析
 when_to_use: 当用户需要了解项目文件结构时使用
 allowed-tools:
   - Bash
 argument-hint: "[目录路径]"
 ---
-
-# 项目结构分析
-
-使用 Bash 工具运行 `find $ARGUMENTS -type f | head -50`，然后分析文件结构模式。
 ```
 
-验证：
-1. 运行 `claude` 并输入 `/my-skill src/`
-2. 检查 `SkillsMenu.tsx` 是否正确显示新 skill
-3. 在 `loadSkillsDir.ts` 的 `getSkillDirCommands` 中加日志观察加载过程
+3. **验证加载**：Skill 在启动时被 `getSkillDirCommands()` 扫描并注册
 
 ### 练习 2：追踪 Skill 调用链
 
-1. 在 `SkillTool.ts` 的 `call()` 方法入口加 `console.error` 日志
-2. 在 `loadSkillsDir.ts` 的 `createSkillCommand.getPromptForCommand` 中加日志
-3. 调用 `/simplify` 或 `/remember`，观察 inline 执行的完整调用链
-4. 思考：fork 模式的 skill 和 inline 模式在 token 使用上有何不同？
+**答案**：
+
+调用链对比：
+
+| 模式 | 路径 | Token 使用 |
+|------|------|----------|
+| Inline | SkillTool.call() → processPromptSlashCommand() → 注入 user message | 继承主会话预算 |
+| Fork | SkillTool.call() → runAgent() → 独立上下文 | 独立预算 |
+
+**Java 对比**：
+```java
+// Inline 类似方法直接调用
+void inlineSkill() { /* 主线程 */ }
+
+// Fork 类似 @Async 任务
+@Async
+CompletableFuture<String> forkedSkill() { /* 新线程 */ }
+```
 
 ### 练习 3：理解 Plugin Hook 注入
 
-1. 阅读 `loadPluginHooks.ts` 中的 `convertPluginHooksToMatchers()`
-2. 追踪一个 Plugin 的 `PreToolUse` hook 如何被注册到 `STATE.registeredHooks`
-3. 对比 `loadPluginHooks()` 和 `pruneRemovedPluginHooks()` 的行为差异
-4. 思考：为什么 hook 注册必须是原子的（clear + register 配对）？
+**答案**：
+
+Hook 注册必须是原子的原因：
+- 避免新旧 hook 同时存在导致竞态
+- 清空再注册确保 hook 执行顺序确定
+
+**Java 对比**：
+```java
+// Spring 的拦截器注册也是原子的
+InterceptorRegistry registry = getInterceptors();
+registry.removeInterceptorByName(name);  // clear
+registry.addInterceptor(interceptor);     // register
+```
 
 ### 练习 4：条件 Skill 实验
 
-1. 在 SKILL.md 的 frontmatter 中添加 `paths: "src/**"` 
-2. 观察该 skill 被分类为 conditional skill
-3. 当操作 `src/` 下的文件时，观察 `activateConditionalSkillsForPaths` 的日志
-4. 思考：条件 skill 的激活时机与文件操作的关联是什么？
+**答案**：
+
+条件 Skill 激活时机：
+- 文件路径匹配 `paths` pattern 时激活
+- 通过 `activateConditionalSkillsForPaths(filePaths, cwd)` 实现
+
+**Java 对比**：
+```java
+// Spring 的 @ConditionalOnProperty
+@Bean
+@ConditionalOnProperty(name = "feature.skill.enabled")
+public Skill mySkill() { return new MySkill(); }
+```
+
+---
+
+### 练习 5：Plugin 热重载机制
+
+**目标**：理解 Plugin 配置变化时如何触发热重载。
+
+**场景**：用户修改了 `settings.json` 中的 `allowedTools` 配置，Claude Code 如何响应？
+
+**答案**：
+
+**热重载流程**：
+```
+settings.json 变化
+    ↓
+settingsChangeDetector 检测到变化
+    ↓
+发布 'policySettings' 变更事件
+    ↓
+loadPluginHooks() 重新加载
+    ↓
+Hook 配置更新完成
+```
+
+**关键代码**：
+```typescript
+settingsChangeDetector.subscribe(async (changes) => {
+  if (changes.policySettings) {
+    await loadPluginHooks()  // 重新加载
+  }
+})
+```
+
+**注意**：只重载 Hook 配置，不重载 Plugin 本身。
+
+**Java 对比**：类似于 Spring 的 `@RefreshScope`，配置变化时重新创建 Bean。
+
+---
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | .claude/skills/name/SKILL.md 格式，frontmatter 定义元数据 |
+| 2 | Inline=注入消息；Fork=独立 Agent，有独立 token 预算 |
+| 3 | 原子注册避免竞态，clear + register 配对 |
+| 4 | paths pattern 匹配时激活，类似 @Conditional |
+| 5 | settingsChangeDetector 触发 loadPluginHooks() 重载 |
+
+---
+
+## Skill/Plugin vs Java Spring
+
+| 方面 | Claude Code | Java Spring |
+|------|-------------|-------------|
+| 技能定义 | SKILL.md (Markdown) | @Bean 方法 |
+| 技能注册 | getSkillDirCommands() | @ComponentScan |
+| 条件激活 | paths frontmatter | @Conditional |
+| 插件形式 | 目录 + plugin.json | JAR + spring.factories |
+| Hook 注入 | loadPluginHooks() | HandlerInterceptor |
+| 生命周期 | install/enable/update/uninstall | @PostConstruct/@PreDestroy |
+| 预算管理 | SKILL_BUDGET_CONTEXT_PERCENT | 无等价 |
 
 ---
 

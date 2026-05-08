@@ -306,7 +306,221 @@ export class PromptTooLongError extends APIError {
 
 ---
 
-## 7. 关键源码文件索引
+---
+
+## 练习
+
+### 练习 1：消息标准化
+
+**问题**：Claude Code 的内部消息格式和 API 格式有什么不同？为什么需要转换？
+
+**答案**：
+
+**格式差异**：
+```typescript
+// Claude Code 内部格式
+interface Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: ContentBlock[]
+  type?: 'api-round' | 'compact-boundary'
+}
+
+// API 格式
+interface APIMessage {
+  role: 'user' | 'assistant'
+  content: string | ContentBlock[]
+}
+```
+
+**转换原因**：
+1. API 有固定的字段要求
+2. 内部有额外元数据（id, type 等）
+3. content 格式不同
+
+```typescript
+// 转换函数
+function normalizeMessagesForAPI(messages: Message[]): APIMessage[] {
+  return messages
+    .filter(m => m.role === 'user' || m.role === 'assistant')
+    .map(m => ({
+      role: m.role,
+      content: m.content  // 可能是 string 或 ContentBlock[]
+    }))
+}
+```
+
+---
+
+### 练习 2：流式事件解析
+
+**问题**：`parseStreamEvent()` 如何解析 SSE 格式的流式响应？
+
+**答案**：
+
+**SSE 格式**：
+```
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}
+
+event: message_stop
+data: {"type":"message_stop"}
+```
+
+**解析逻辑**：
+```typescript
+function parseStreamEvent(lines: string[]): StreamEvent | null {
+  let event: string | undefined
+  let data: string
+
+  for (const line of lines) {
+    if (line.startsWith('event:')) {
+      event = line.slice(6).trim()
+    } else if (line.startsWith('data:')) {
+      data = line.slice(5).trim()
+    }
+  }
+
+  if (!data) return null
+
+  const parsed = JSON.parse(data)
+
+  return {
+    type: event || parsed.type,
+    data: parsed
+  }
+}
+```
+
+---
+
+### 练习 3：重试策略
+
+**问题**：哪些 API 错误需要重试？重试策略是什么？
+
+**答案**：
+
+**可重试错误**：
+| 错误类型 | 重试 | 原因 |
+|---------|------|------|
+| `RateLimitError` (429) | ✅ | 服务端限流 |
+| `ServerError` (5xx) | ✅ | 服务端问题 |
+| `NetworkError` | ✅ | 网络问题 |
+| `AuthenticationError` (401) | ❌ | 认证失败 |
+| `QuotaExceeded` (403) | ❌ | 配额用尽 |
+
+**重试策略**：
+```typescript
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3
+): Promise<T> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn()
+    } catch (error) {
+      if (!isRetryable(error)) throw error
+
+      const delay = calculateBackoff(i)  // 指数退避
+      await sleep(delay)
+    }
+  }
+  throw new Error('Max retries exceeded')
+}
+```
+
+---
+
+### 练习 4：OAuth PKCE 流程
+
+**问题**：Claude Code 的 OAuth 认证为什么使用 PKCE？流程是怎样的？
+
+**答案**：
+
+**PKCE 作用**：防止授权码被拦截
+
+**完整流程**：
+```
+1. 客户端生成 code_verifier（随机字符串）
+2. 计算 code_challenge = SHA256(code_verifier)
+3. 打开浏览器，跳转到授权页面（含 code_challenge）
+4. 用户授权，浏览器重定向到 localhost 回调
+5. 客户端收到 code
+6. 用 code + code_verifier 换取 token
+7. 服务器验证 code_challenge
+```
+
+**关键代码**：
+```typescript
+const codeVerifier = generateRandomString(64)
+const codeChallenge = await sha256Hash(codeVerifier)  // S256
+
+// 换取 token
+const token = await fetch('/token', {
+  body: { code, code_verifier: codeVerifier }
+})
+```
+
+---
+
+### 练习 5：错误类型层次
+
+**问题**：API 错误的类层次结构是什么？
+
+**答案**：
+
+```
+Error
+  └── APIError (基类)
+        ├── RateLimitError (429)
+        ├── AuthenticationError (401)
+        ├── QuotaExceededError (403)
+        └── PromptTooLongError (400)
+```
+
+**使用场景**：
+```typescript
+try {
+  await createMessageStream(request)
+} catch (error) {
+  if (error instanceof RateLimitError) {
+    // 显示 "请求过于频繁，请稍后重试"
+  } else if (error instanceof AuthenticationError) {
+    // 跳转登录
+  } else if (error instanceof QuotaExceededError) {
+    // 显示配额不足
+  }
+}
+```
+
+---
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | 内部格式有额外字段，API格式需标准化 |
+| 2 | 解析 event: 和 data: 行，JSON.parse data |
+| 3 | 5xx/429/网络错误重试，4xx 不重试 |
+| 4 | PKCE 防止授权码拦截，code_verifier 验证 |
+| 5 | APIError 基类 → RateLimit/Auth/Quota/PromptTooLong |
+
+---
+
+## 附录：API 响应码速查
+
+| 状态码 | 含义 | 处理 |
+|--------|------|------|
+| 200 | 成功 | 解析响应 |
+| 400 | 请求错误 | 检查参数 |
+| 401 | 认证失败 | 刷新 token |
+| 403 | 权限/配额 | 提示用户 |
+| 429 | 限流 | 等待重试 |
+| 500+ | 服务器错误 | 等待重试 |
+
+---
+
+## 8. 关键源码文件索引
 
 | 文件 | 关键函数 | 说明 |
 |------|---------|------|
@@ -320,3 +534,9 @@ export class PromptTooLongError extends APIError {
 | `src/services/oauth/client.ts` | `refreshOAuthToken()` | Token 刷新 |
 | `src/utils/auth.ts` | `getAPIKey()` | API Key 获取 |
 | `src/utils/auth.ts` | `getAuthToken()` | Auth Token 获取 |
+
+---
+
+## 附录导航
+
+👈 [A10-插件系统代码.md](./A10-插件系统代码.md) | [A13-TypeScript实战.md](./A13-TypeScript实战.md) 👉

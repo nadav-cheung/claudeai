@@ -363,7 +363,183 @@ async function writeToMailbox(agentId: string, message: ProtocolMessage): Promis
 
 ---
 
-## 6. 关键源码文件索引
+---
+
+## 练习
+
+### 练习 1：Agent 与 Team 的区别
+
+**问题**：Claude Code 中的 Agent 和 Team 分别是什么？它们有什么关系？
+
+**答案**：
+
+| 概念 | 定义 | 关系 |
+|------|------|------|
+| **Agent** | 能独立执行任务的 AI 实例 | Team 的成员 |
+| **Team** | 多个 Agent 协作的组织 | 管理 Agent 的容器 |
+
+**Team 结构**：
+```
+Team
+├── Lead Agent (主控)
+│   ├── 协调其他 Agent
+│   └── 决策最终输出
+└── Member Agents
+    ├── Researcher
+    ├── Coder
+    └── Reviewer
+```
+
+**Java 对比**：
+- Agent 类似于 Thread/Task
+- Team 类似于 ExecutorService/ThreadPool
+
+---
+
+### 练习 2：Fork 与 Subagent 的区别
+
+**问题**：`forkSubagent` 和普通的 Subagent 调用有什么不同？
+
+**答案**：
+
+| 方面 | forkSubagent | Subagent |
+|------|--------------|----------|
+| 上下文 | Fork 新会话 | 共享父会话 |
+| 独立性 | 高（独立 history） | 低（共享 history） |
+| 适用场景 | 独立并行任务 | 协作子任务 |
+
+```typescript
+// forkSubagent：完全独立的会话
+const forkedAgent = await forkSubagent({
+  prompt: "独立的调查任务",
+  sessionId: generateNewSessionId()  // 新 session
+})
+
+// 普通 subagent：共享上下文
+const subagentAgent = await runAgent({
+  prompt: "协作子任务",
+  parentSession: currentSession  // 共享 session
+})
+```
+
+---
+
+### 练习 3：Mailbox 消息机制
+
+**问题**：Agent 之间如何通过 Mailbox 传递消息？
+
+**答案**：
+
+**Mailbox 结构**：
+```typescript
+type Mailbox = {
+  messages: ProtocolMessage[]
+  unreadCount: number
+  lastReadTimestamp: number
+}
+```
+
+**消息传递流程**：
+```
+Agent A                    Mailbox                    Agent B
+   │                           │                           │
+   │  writeToMailbox() ──────→ │                           │
+   │                           │                           │
+   │                           │  ←────── readMailbox()   │
+   │                           │                           │
+```
+
+**消息类型**：
+- `shutdown_request` / `shutdown_response`
+- `plan_approval_response`
+- 自有文本消息
+
+**Java 对比**：类似于 Actor Model 的消息邮箱（如 Akka）。
+
+---
+
+### 练习 4：团队协作模式
+
+**问题**：Team 的典型协作模式是什么？
+
+**答案**：
+
+**Leader-Member 模式**：
+```
+User
+  ↓
+Team Lead (主 Agent)
+  ↓ 分工
+┌──→ Researcher (调查)
+├──→ Coder (编码)
+└──→ Reviewer (审查)
+  ↓ 汇报
+Team Lead
+  ↓ 汇总
+User
+```
+
+**协作流程**：
+1. Lead 接收用户任务
+2. Lead 分析并分解为子任务
+3. 通过 SendMessageTool 分配给 Member
+4. Member 执行并返回结果
+5. Lead 汇总结果返回用户
+
+---
+
+### 练习 5：会话隔离与共享
+
+**问题**：Agent 之间如何实现会话隔离？什么情况下会话是共享的？
+
+**答案**：
+
+| 场景 | 会话关系 | 隔离级别 |
+|------|---------|---------|
+| `forkSubagent` | 新建 session | 完全隔离 |
+| Team Member | 独立 session | 隔离 |
+| InProcessTeammate | 共享 session | 部分共享 |
+| 普通 Subagent | 父 session | 共享 |
+
+```typescript
+// 完全隔离
+const forkedSession = await forkSubagent({
+  sessionId: crypto.randomUUID()  // 新 ID
+})
+
+// 部分共享（InProcess）
+const teammateTask = new InProcessTeammateTask({
+  sharedSession: true,  // 共享父会话
+  parentId: parentAgentId
+})
+```
+
+---
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | Agent=独立AI实例，Team=管理Agent的组织 |
+| 2 | fork=独立会话，subagent=共享上下文 |
+| 3 | Mailbox=消息队列，writeToMailbox投递 |
+| 4 | Lead分解任务，Member执行，Lead汇总 |
+| 5 | forkSubagent完全隔离，InProcess部分共享 |
+
+---
+
+## 附录：Agent 地址类型
+
+| 地址格式 | 含义 | 示例 |
+|---------|------|------|
+| `teammate-name` | 队友名 | `researcher` |
+| `*` | 广播 | 所有成员 |
+| `uds:<path>` | Unix Domain Socket | 本地对等 |
+| `bridge:<session>` | Remote Bridge | 远程控制 |
+
+---
+
+## 7. 关键源码文件索引
 
 | 文件 | 关键函数/类 | 说明 |
 |------|-----------|------|
@@ -377,3 +553,9 @@ async function writeToMailbox(agentId: string, message: ProtocolMessage): Promis
 | `src/utils/mailbox.ts` | `writeToMailbox()`, `readMailbox()` | 邮箱机制 |
 | `src/tasks/LocalAgentTask/LocalAgentTask.tsx` | `LocalAgentTask` | 本地后台任务 |
 | `src/tasks/InProcessTeammateTask/InProcessTeammateTask.tsx` | `InProcessTeammateTask` | 进程内队友任务 |
+
+---
+
+## 附录导航
+
+👈 [A07-MCP集成代码.md](./A07-MCP集成代码.md) | [A09-记忆系统代码.md](./A09-记忆系统代码.md) 👉

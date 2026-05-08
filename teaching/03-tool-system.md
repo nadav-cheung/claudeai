@@ -553,10 +553,106 @@ type ToolResult<T> = {
 
 ## 练习
 
-1. **工具接口**：阅读 `src/Tool.ts` 的 `Tool` 类型定义，列出所有方法并理解其用途
-2. **注册表分析**：在 `src/tools.ts` 的 `getAllBaseTools()` 中，找出哪些工具有条件加载，条件是什么
-3. **BashTool 深入**：阅读 `src/tools/BashTool/bashPermissions.ts`，理解命令匹配规则
-4. **Prompt 设计**：对比 BashTool 和 FileEditTool 的 `prompt.ts`，分析它们如何引导模型正确使用
+### 练习 1：工具接口
+
+**类比 Java**：这类似于 Spring 的 `HandlerAdapter` 接口——统一调用方式，具体实现各异。
+
+**答案**：
+
+`Tool` 接口核心方法：
+
+| 方法 | 用途 | Java 类比 |
+|------|------|-----------|
+| `name` | 工具唯一标识 | `HandlerAdapter.supports(Object handler)` |
+| `inputSchema` | Zod 输入校验 | `@Valid` + `Validator` |
+| `prompt()` | 工具描述给模型 | OpenAPI `@Operation` annotation |
+| `call()` | 执行逻辑 | `handle()` |
+| `isReadOnly()` | 是否只读 | `HttpMethod` 注解 |
+| `isConcurrencySafe()` | 是否可并发 | 无等价 |
+| `checkPermissions()` | 权限检查 | `AccessDecisionVoter` |
+| `isEnabled()` | 是否可用 | `@Conditional` |
+
+### 练习 2：注册表分析
+
+**答案**：
+
+条件加载的工具：
+
+| 工具 | 条件 | 环境变量/Flag |
+|------|------|--------------|
+| GlobTool, GrepTool | 无嵌入式搜索 | `hasEmbeddedSearchTools()` |
+| TaskCreateTool 等 | TODO_V2 | `isTodoV2Enabled()` |
+| EnterWorktreeTool | WORKTREE_MODE | `feature('WORKTREE_MODE')` |
+| TeamCreateTool | AGENT_SWARMS | `isAgentSwarmsEnabled()` |
+| WebBrowserTool | WEB_BROWSER_TOOL | feature flag |
+| LSPTool | ENABLE_LSP_TOOL | feature flag |
+
+**Java 对比**：
+```java
+// Spring 的条件加载
+@Bean
+@ConditionalOnProperty(name = "feature.tool.enabled", havingValue = "true")
+public Tool myTool() { return new MyTool(); }
+```
+
+### 练习 3：BashTool 深入
+
+**答案**：
+
+命令匹配使用 glob 模式：
+
+| 匹配类型 | 示例 | 用途 |
+|---------|------|------|
+| `prefix` | `rm *` | 前缀匹配 |
+| `exact` | `rmdir` | 精确匹配 |
+| `wildcard` | `git *` | 通配符匹配 |
+
+**Java 对比**：
+```java
+// Spring Security 的 AntPathRequestMatcher
+new AntPathRequestMatcher("/api/**");
+// Claude Code 的 bashPermissions.ts
+{ type: "wildcard", pattern: "git *" }
+```
+
+### 练习 4：Prompt 设计
+
+**答案**：
+
+BashTool vs FileEditTool prompt 对比：
+
+| 方面 | BashTool | FileEditTool |
+|------|----------|--------------|
+| 约束重点 | 命令安全性、超时、状态持久 | old_string 唯一性、路径验证 |
+| 行为引导 | 避免危险命令 | 先 Read 再 Edit |
+| 限制说明 | Long-running timeout | 精确替换语义 |
+| 最佳实践 | 高效命令模式 | 偏好编辑而非创建 |
+
+---
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | Tool 接口：name/inputSchema/call/isReadOnly 等 |
+| 2 | 条件加载：feature flag 或函数检查 |
+| 3 | glob 匹配：prefix/exact/wildcard 三种 |
+| 4 | BashTool 关注安全/超时；FileEditTool 关注精确性 |
+
+---
+
+## 工具系统 vs Java Spring
+
+| 方面 | Claude Code | Java Spring |
+|------|-------------|-------------|
+| 接口定义 | `Tool` type | `HandlerAdapter` |
+| 输入校验 | Zod schema | Jakarta Validation |
+| 调用方式 | `tool.call(args, ctx)` | `adapter.handle(request, response)` |
+| 权限检查 | `checkPermissions()` | `AccessDecisionManager` |
+| 结果类型 | `ToolResult<T>` | `ModelAndView` |
+| 工具注册 | `getAllBaseTools()` | `HandlerAdapterRegistry` |
+| 条件加载 | `feature('FLAG')` | `@ConditionalOnProperty` |
+| 工具描述 | `prompt()` 方法 | OpenAPI `@Operation` |
 
 ---
 

@@ -560,9 +560,159 @@ export class PromptTooLongError extends APIError {
 
 ## 练习
 
-1. **API 调用链**：从 `src/services/api/claude.ts` 入手，追踪一个完整的 API 请求是如何构建和发送的
-2. **OAuth 流程**：阅读 `src/services/oauth/client.ts`，理解 PKCE 流程和 token 刷新机制
-3. **Bridge 消息**：阅读 `src/bridge/bridgeMessaging.ts`，理解 IDE 和 CLI 之间的消息格式
-4. **错误处理**：阅读 `src/services/api/withRetry.ts`，理解重试策略的实现
+### 练习 1：API 调用链
+
+**类比 Java**：这类似于 Spring 的 `RestTemplate` 或 `WebClient` 发送 HTTP 请求。
+
+**答案**：
+
+完整 API 调用链路：
+```
+用户输入 → REPL.tsx → createUserMessage()
+  → query.ts → createMessageStream()
+  → normalizeMessagesForAPI() → buildSystemPrompt()
+  → toolToAPISchema() → Anthropic SDK
+  → POST /v1/messages (streaming)
+  → 流式响应 → text/tool_use/usage 事件
+```
+
+**Java 对比**：
+```java
+// Spring RestTemplate
+restTemplate.postForEntity(url, request, Response.class);
+// WebClient (reactive)
+webClient.post()
+    .bodyValue(request)
+    .retrieve()
+    .bodyToFlux(Response.class);
+```
+
+### 练习 2：OAuth 流程
+
+**答案**：
+
+OAuth PKCE 流程：
+
+| 步骤 | Claude Code | Java Spring |
+|------|-----------|-------------|
+| 1. 生成 verifier | `code_verifier = randomString()` | `@Bean` generated |
+| 2. 生成 challenge | `SHA256(verifier)` | `Spring Security OAuth2` |
+| 3. 授权 URL | `buildAuthUrl()` | `AuthorizationRequest` |
+| 4. 回调接收 | `localhost:port/callback` | `@GetMapping("/callback")` |
+| 5. Token 交换 | `exchangeCodeForToken()` | `AuthorizationCodeTokenResponseClient` |
+| 6. Token 刷新 | `checkAndRefreshOAuthTokenIfNeeded()` | `OAuth2AuthorizedClientService` |
+
+### 练习 3：Bridge 消息
+
+**答案**：
+
+Bridge 消息类型：
+
+| 消息类型 | 方向 | Java 类比 |
+|---------|------|----------|
+| `user_message` | IDE → CLI | HTTP Request |
+| `assistant_message` | CLI → IDE | HTTP Response |
+| `tool_use` | CLI → IDE | Controller event |
+| `tool_result` | IDE → CLI | Service result callback |
+| `permission_request` | CLI → IDE | `@PreAuthorize` 拦截 |
+| `permission_response` | IDE → CLI | Security context |
+
+### 练习 4：错误处理
+
+**答案**：
+
+重试策略对比：
+
+| 错误类型 | Claude Code | Java Resilience4j |
+|---------|------------|-------------------|
+| 429 Rate Limit | 指数退避重试 | `@Retryable(maxAttempts)` |
+| 500 Server Error | 重试 | `@Retryable` |
+| 503 Unavailable | 重试 | `@CircuitBreaker` |
+| 其他错误 | 不重试 | `@Retryable` |
 
 ---
+
+### 练习 5：Direct Connect vs SSH 远程会话
+
+**目标**：理解 Direct Connect 和 SSH 远程会话的区别。
+
+**场景**：用户在本地 Mac 上，想连接远程 Linux 服务器上的 Claude Code，应该用哪种方式？
+
+**答案**：
+
+| 方面 | Direct Connect | SSH 远程会话 |
+|------|---------------|-------------|
+| 连接方向 | CLI → 服务器 | 服务器 → CLI |
+| 配置 | `cc:// URL` | SSH 配置 |
+| 延迟 | 较低 | 取决于网络 |
+| 适用场景 | 内网穿透 | 通用 |
+
+**Direct Connect 流程**：
+```
+本地 Claude Code
+    ↓
+解析 cc:// URL（包含 serverUrl + authToken）
+    ↓
+Direct Connect Session 建立
+    ↓
+远程 Claude Code 作为服务端
+```
+
+**SSH 远程会话流程**：
+```
+用户输入 /connect user@host
+    ↓
+建立 SSH 连接
+    ↓
+在远程服务器启动 Claude Code
+    ↓
+通过 SSH 管道传输数据
+```
+
+**Java 对比**：Direct Connect 类似于 RMI 的 stub-skeleton 机制，SSH 远程会话类似于 JMX 的远程管理。
+
+---
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | createMessageStream → normalize → buildSystemPrompt → SDK → streaming |
+| 2 | PKCE: verifier → challenge → auth URL → callback → token exchange |
+| 3 | Bridge 是 WebSocket/stdin 协议，IDE ↔ CLI 双向消息 |
+| 4 | 指数退避重试：429/500/503 可重试，其他不重试 |
+| 5 | Direct Connect=CLI→服务器，SSH=服务器→CLI隧道 |
+
+---
+
+## API 通信 vs Java HTTP Client
+
+| 方面 | Claude Code | Java |
+|------|------------|------|
+| HTTP 客户端 | Anthropic SDK | RestTemplate / WebClient |
+| 流式处理 | AsyncGenerator | Flux / Observable |
+| 重试策略 | withRetry() | Resilience4j @Retryable |
+| 认证 | OAuth + API Key | Spring Security OAuth2 |
+| 多云 | Bedrock / Vertex | AWS SDK / GCP SDK |
+| 远程会话 | SSH / WebSocket | JMX / RMI |
+| IDE 集成 | Bridge 模式 | LSP (Language Server Protocol) |
+
+---
+
+## 关键文件速查
+
+| 功能 | 文件路径 |
+|------|---------|
+| API 调用 | `src/services/api/claude.ts` |
+| OAuth | `src/services/oauth/client.ts` |
+| 远程会话 | `src/remote/RemoteSessionManager.ts` |
+| Bridge | `src/bridge/bridgeMain.ts` |
+| Direct Connect | `src/server/createDirectConnectSession.ts` |
+| SSH | `src/hooks/useSSHSession.ts` |
+| 错误处理 | `src/services/api/withRetry.ts` |
+
+---
+
+## 下一篇
+
+👉 [12-typescript-vs-java.md](./12-typescript-vs-java.md) — TypeScript 与 Java 架构思想对比，包括类型系统、设计模式、异步编程的全面对比。

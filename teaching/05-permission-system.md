@@ -377,42 +377,98 @@ src/hooks/toolPermission/PermissionContext.ts
 
 ### 练习 1：理解权限模式的转换
 
-阅读 `permissionSetup.ts` 和 `PermissionMode.ts`，回答：
+**类比 Java**：权限模式转换类似于 Spring Security 的 `SecurityFilterChain` 动态切换。
 
-1. 从 `default` 模式切换到 `plan` 模式时，`applyPermissionRulesToPermissionContext()` 做了什么？
-2. 从 `plan` 模式退出时，如何恢复到之前的权限模式？
-3. `auto` 模式在什么条件下会被自动激活？
+**答案**：
 
-### 练习 2：追踪一条 deny 规则的生效路径
+1. **`default` → `plan` 模式**
+   - `applyPermissionRulesToPermissionContext()` 设置只读规则
+   - 所有写操作（Edit/Write/Bash）被标记为 deny
+   - 模型只能执行只读操作
 
-场景：在 `.claude/settings.json` 中添加了 `permissions.deny: ["Bash(rm -rf *)"]`。
+2. **`plan` 模式退出恢复**
+   - 从会话状态中读取之前的权限模式
+   - 恢复到 `default` 或用户之前设置的模式
 
-步骤：
-1. 阅读 `permissionsLoader.ts` 中的 `loadAllPermissionRulesFromDisk()`
-2. 追踪规则如何被解析为 `PermissionRule` 对象
-3. 在 `checkRuleBasedPermissions()` 中找到规则匹配逻辑
-4. 如果同时存在 allow 规则 `Bash(rm *)`，哪个生效？
+3. **`auto` 模式激活条件**
+   - SDK 消费者显式请求 `auto` 模式
+   - `tengu_auto_mode_config.enabled` 不为 `disabled`
+   - 熔断器 `autoModeCircuitBroken` 为 false
 
-### 练习 3：分析分类器权限系统
+### 练习 2：追踪 deny 规则生效路径
 
-目标：理解分类器如何用 prompt 描述来判断命令安全性。
+**类比 Java**：规则匹配类似于 Spring Security 的 `AccessDecisionVoter` 投票。
 
-1. 阅读 `bashClassifier.ts` 中的 `classifyBashCommand()` 接口
-2. 阅读 `classifierDecision.ts` 了解分类器决策逻辑
-3. 分析 `PROMPT_PREFIX = 'prompt:'` 规则的工作方式
+**答案**：
 
-思考题：为什么用 prompt 描述而不是直接匹配命令模式？这种设计的优缺点是什么？
+1. **规则加载路径**：`loadAllPermissionRulesFromDisk()` → 解析 JSON → 生成 PermissionRule → 按优先级排序
+
+2. **deny 优先于 allow**：deny 规则匹配 → 直接拒绝，allow 规则不被检查
+
+**Java 对比**：
+```java
+// Spring Security 投票器
+public int vote(Authentication auth, Object target, Collection<ConfigAttribute> attrs) {
+    for (ConfigAttribute attr : attrs) {
+        if ("ROLE_ADMIN".equals(attr.getAttribute())) return ACCESS_GRANTED;
+        if ("ROLE_DENY".equals(attr.getAttribute())) return ACCESS_DENIED;  // deny 优先
+    }
+    return ACCESS_ABSTAIN;
+}
+```
+
+### 练习 3：分类器权限系统分析
+
+**答案**：
+
+| 方面 | Prompt 描述 | 直接匹配 |
+|------|------------|---------|
+| 灵活性 | 高（自然语言） | 低（精确匹配） |
+| 泛化 | AI 可推断类似命令 | 无推断能力 |
+| 误报率 | 可能误判 | 精确但死板 |
+| 性能 | 需 AI 调用 | 快速正则 |
+
+**优点**：用户可用"删除文件的命令"描述一类危险操作，AI 理解 `rm -rf`、`git push --force` 等。
+
+**缺点**：依赖 AI 理解能力，可能误判；需额外 AI 调用开销。
 
 ### 练习 4：权限 UI 组件分析
 
-阅读 `src/components/permissions/PermissionRequest.tsx`：
+**答案**：
 
-1. `ToolUseConfirm` 类型包含哪些字段？
-2. 权限对话框如何区分 "Allow Once" 和 "Allow Always" 的持久化？
-3. `acceptFeedback` 字段的作用是什么？
+1. **`ToolUseConfirm` 字段**：`toolName`, `input`, `toolUseId`, `inputDescription`
+
+2. **Allow Once vs Always**：
+   - `Allow Once`：session 临时规则
+   - `Allow Always`：持久化到 settings.json
+
+3. **`acceptFeedback`**：记录用户反馈，用于改进分类器
+
+---
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | plan 只读限制，auto 通过 GrowthBook + 熔断器激活 |
+| 2 | deny 优先于 allow（安全不变量） |
+| 3 | prompt 灵活但有 AI 依赖开销 |
+| 4 | Once=session 临时，Always=持久化 |
+
+---
+
+## 权限系统 vs Java Spring Security
+
+| 方面 | Claude Code | Spring Security |
+|------|-------------|----------------|
+| 规则定义 | JSON + glob 模式 | `hasRole()`, `permitAll()` |
+| 匹配方式 | glob/wildcard | Ant 路径 + SpEL |
+| 决策者 | 规则 + 分类器 + 用户 | AccessDecisionManager |
+| 权限模式 | default/plan/auto/bypass | 无等价物 |
+| 熔断器 | autoModeCircuitBroken | CircuitBreaker |
 
 ---
 
 ## 下一篇
 
-[下一章：上下文管理与压缩 (Context Management and Compaction) →](06-context-and-compact.md)
+👉 [06-context-and-compact.md](./06-context-and-compact.md) — 上下文管理与压缩

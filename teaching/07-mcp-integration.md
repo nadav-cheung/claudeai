@@ -409,15 +409,102 @@ export const fetchClaudeAIMcpConfigsIfEligible = memoize(async () => {
 
 ## 练习
 
-1. **连接类型**：阅读 `src/services/mcp/client.ts` 中的 `connectToServer()` 函数，列出每种传输类型（stdio/sse/http/ws）创建 Transport 时设置的选项差异。特别关注 SSE 和 HTTP 的 `fetch` 包装器链。
+### 练习 1：连接类型对比
 
-2. **配置合并**：在 `src/services/mcp/config.ts` 中追踪 `getClaudeCodeMcpConfigs()` 的完整调用链。理解为什么企业配置是"排他模式"，以及项目服务器为什么需要"approved"状态。
+**类比 Java**：这类似于 JDBC 的驱动类型——不同数据库有不同驱动，MCP 的传输类型类似于此。
 
-3. **工具桥接**：阅读 `client.ts` 中的 `fetchToolsForClient()` 和工具创建逻辑。理解 MCP 工具名 `mcp__server__tool` 的规范化规则，以及为什么需要 `normalizeNameForMCP()`。
+**答案**：
 
-4. **Elicitation 流**：阅读 `src/services/mcp/elicitationHandler.ts` 和 `src/components/mcp/ElicitationDialog.tsx`。理解 form 模式和 url 模式的区别，以及 `completed` 通知如何解除等待状态。
+| 传输类型 | 创建方式 | 特点 |
+|---------|---------|------|
+| stdio | `StdioClientTransport` | 子进程，本地通信 |
+| sse | `SSEClientTransport` | HTTP 长连接，服务器推送 |
+| http | `StreamableHTTPClientTransport` | 现代 HTTP，支持流式 |
+| ws | `WebSocketTransport` | 双向实时通信 |
 
-5. **认证重试**：追踪 `createClaudeAiProxyFetch()` 中的 401 重试逻辑。理解为什么需要捕获 `sentToken` 而不是在重试时重新读取 token（提示：并发 401 场景下的竞态条件）。
+### 练习 2：配置优先级
+
+**答案**：
+
+| 优先级 | 来源 | 说明 |
+|--------|------|------|
+| 1（最低） | claudeai | Claude.ai 注册表 |
+| 2 | 插件 | 插件提供的服务器 |
+| 3 | 用户 | ~/.claude/settings.json |
+| 4 | 项目 | .mcp.json |
+| 5 | 本地 | settings.local.json |
+| 6（最高） | 企业 | managed-mcp.json（排他） |
+
+**企业排他**：存在企业配置时，忽略其他配置，确保企业安全策略不被绕过。
+
+**项目 approved**：项目服务器需要显式批准才能使用，防止恶意 .mcp.json 注入。
+
+### 练习 3：工具桥接
+
+**答案**：
+
+**为什么需要规范化？**
+- MCP 服务器名称可能包含特殊字符（空格、连字符等）
+- 工具名需要符合 Claude Code 的命名规范
+- 避免命名冲突
+
+**normalizeNameForMCP()**：
+- 替换特殊字符为下划线
+- 确保跨服务器工具名唯一
+
+### 练习 4：Elicitation 模式
+
+**答案**：
+
+| 模式 | 流程 | 类比 |
+|------|------|------|
+| form | 服务器发送 schema → CLI 渲染对话框 → 用户填写 → 提交 | 表单提交 |
+| url | 服务器发送 URL → CLI 打开浏览器 → 用户授权 → 回调 | OAuth 授权码流程 |
+
+**completed 通知**：用户提交表单或授权完成后，`respond()` 被调用，解除工具执行等待状态。
+
+### 练习 5：认证重试
+
+**答案**：
+
+**为什么捕获 `sentToken`？**
+
+并发 401 场景：
+```
+时刻T1: 请求A 发送 token X，收到 401
+时刻T2: 请求B 发送 token Y，收到 401
+时刻T3: 刷新 token X → token Z
+时刻T4: 重试请求A，使用 token Z
+```
+
+如果在重试时重新读取 token，可能读到新的 token（如 token Z），而不是请求 A 原来发送的 token X，导致重试失败。
+
+**解决方案**：捕获 `sentToken`，重试时使用相同 token。
+
+---
+
+## MCP vs JDBC
+
+| 方面 | MCP | JDBC |
+|------|------|------|
+| 协议 | JSON-RPC over stdio/HTTP/WS | SQL over TCP |
+| 发现 | `tools/list` 动态发现 | `DatabaseMetaData` |
+| 调用 | `tools/call` | `Statement.execute()` |
+| 资源 | `resources/list` | `ResultSet` |
+| 认证 | OAuth 2.0 | 数据库用户名/密码 |
+| 驱动 | MCP SDK | JDBC Driver |
+
+---
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | stdio=进程，sse=HTTP长连接，http=流式HTTP，ws=双向 |
+| 2 | 企业排他，项目需approved |
+| 3 | 规范化避免冲突，确保命名合规 |
+| 4 | form=对话框，url=浏览器授权 |
+| 5 | 捕获sentToken避免并发竞态 |
 
 ---
 

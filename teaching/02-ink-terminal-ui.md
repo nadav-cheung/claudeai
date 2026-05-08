@@ -503,10 +503,99 @@ export class TermIO {
 
 ## 练习
 
-1. **追踪渲染**：从 `src/ink/root.ts` 的 `createRoot()` 开始，追踪到 `reconciler.ts`，理解 React 组件如何变成终端 DOM
-2. **理解 Yoga**：阅读 `src/ink/dom.ts` 中的 `setStyle()` 函数，看哪些 CSS 属性被映射到 Yoga
-3. **主题系统**：阅读 `ThemeProvider.tsx`，理解主题如何影响 `ThemedBox` 和 `ThemedText`
-4. **终端能力检测**：阅读 `src/ink/terminal-querier.ts`，看它如何检测终端是否支持真彩色、Unicode 等
+### 练习 1：追踪渲染
+
+**类比 Java**：这类似于 Java Swing 的渲染管线——Component tree → LayoutManager → paint() → Graphics2D。
+
+**答案**：
+
+渲染链路：
+```
+React 组件树 (<Box>, <Text>)
+  → React Reconciler (reconciler.ts)
+  → 虚拟 DOM (dom.ts: DOMElement/TextNode)
+  → Yoga 布局计算 (yoga-layout)
+  → ANSI 字符串 (renderer.ts)
+  → stdout (termio.ts)
+```
+
+**Java 对比**：
+```
+JComponent tree
+  → LayoutManager (BorderLayout, FlowLayout)
+  → paintComponent(Graphics g)
+  → Graphics2D API
+  → ComponentPeer.updateFromTree
+```
+
+### 练习 2：理解 Yoga
+
+**答案**：
+
+Yoga 映射到 CSS Flexbox 属性：
+
+| CSS 属性 | Yoga 属性 | 说明 |
+|---------|----------|------|
+| `display: flex` | `display: "flex"` | 启用 Flexbox |
+| `flexDirection` | `flexDirection` | 主轴方向 |
+| `justifyContent` | `justifyContent` | 主轴对齐 |
+| `alignItems` | `alignItems` | 交叉轴对齐 |
+| `padding` | `padding` | 内边距 |
+| `margin` | `margin` | 外边距 |
+| `width/height` | `width/height` | 尺寸 |
+
+### 练习 3：主题系统
+
+**答案**：
+
+主题系统类似于 Java Swing 的 Look and Feel：
+
+| Ink/Claude Code | Java Swing |
+|----------------|-----------|
+| `ThemeProvider` | `LookAndFeel` |
+| `ThemedBox` | `JPanel` + `UIManager` |
+| `ThemedText` | `JLabel` + `UIManager` |
+| 主题变量 | `UIManager.put(ColorKey, value)` |
+
+主题通过 React Context 向下传播，所有 `ThemedBox` 和 `ThemedText` 自动读取当前主题颜色。
+
+### 练习 4：终端能力检测
+
+**答案**：
+
+终端能力检测查询：
+
+| 能力 | 检测方法 | Java 类比 |
+|------|---------|-----------|
+| 真彩色 | 查询 OSC 4;148 | `GraphicsEnvironment.isHeadless()` |
+| Unicode 等级 | 查询 OSC 1337 | `Charset.forName("UTF-8")` |
+| 鼠标模式 | 查询 DECSET 1000/1006 | `Toolkit.getDefaultToolkit()` |
+|  bracketed paste | 查询 OSC 2004 | `Transferable` |
+
+---
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | Reconciler 将 React 组件转为 DOM → Yoga 布局 → ANSI 输出 |
+| 2 | Yoga 映射 CSS flexbox 属性到原生布局 |
+| 3 | ThemeProvider 类似 Swing LookAndFeel，通过 Context 传播 |
+| 4 | 通过 DEC/CSI 查询序列检测终端能力 |
+
+---
+
+## Ink vs Java Swing
+
+| 方面 | Ink (React for CLI) | Java Swing |
+|------|--------------------|-----------|
+| 布局引擎 | Yoga (Flexbox) | LayoutManager |
+| 渲染目标 | ANSI 终端 | Graphics2D |
+| 组件模型 | React Component | JComponent |
+| 状态管理 | React Hooks | PropertyChangeListener |
+| 样式 | CSS-like | UIDefaults |
+| 事件 | onKeyPress / onMouse | KeyListener / MouseListener |
+| reconciler | 自定义 react-reconciler | SwingUtilities.invokeLater |
 
 ---
 

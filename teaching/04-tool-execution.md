@@ -328,46 +328,189 @@ if (result.updatedMCPToolOutput && isMcpTool(tool)) {
 
 ### 练习 1：追踪一次 Bash 工具调用
 
-目标：理解从模型发出 `Bash(command: "ls -la")` 到返回结果的完整路径。
+**目标**：理解从模型发出 `Bash(command: "ls -la")` 到返回结果的完整路径。
 
-步骤：
+**类比 Java**：这类似于 Spring MVC 中一个请求的处理链路——`DispatcherServlet` → `HandlerMapping` → `HandlerAdapter` → `Controller` → `Service` → `DAO`。
+
+**步骤**：
 1. 从 `runToolUse()` (toolExecution.ts:337) 开始
 2. 追踪到 `checkPermissionsAndCallTool()` (toolExecution.ts:599)
 3. 找到 Bash 分类器预启动的位置 (约 L740)
 4. 找到 `tool.call()` 的调用点 (约 L1207)
 5. 查看 BashTool 的 `call()` 方法如何使用沙箱
 
-思考题：为什么 Bash 分类器要"投机性"地提前启动，而不是等权限检查时再启动？（答案见上方"为什么 Bash 分类器要'投机性'地提前启动？"）
+**思考题答案**：
+Bash 分类器"投机性"提前启动的原因：
+1. **延迟隐藏**：I/O 密集型操作（读文件、运行规则）可以隐藏在工具执行早期阶段
+2. **auto 模式性能**：在 `auto` 模式下，分类器结果直接影响权限决策，提前算好可让权限判断几乎零延迟
+3. **异步缓存**：`startSpeculativeClassifierCheck` 把 Promise 存入 Map，`consumeSpeculativeClassifierCheck` 消费——如果已算好就直接用
 
 ### 练习 2：分析并发执行场景
 
-目标：理解 StreamingToolExecutor 的并发控制逻辑。
+**目标**：理解 StreamingToolExecutor 的并发控制逻辑。
 
-场景：模型同时发出三个 tool_use：
+**类比 Java**：这类似于 Java 的 `CompletableFuture` 并发执行——多个任务可以并行执行，但某些有依赖关系的任务需要串行。
+
+**场景**：
 - `Read(file_path="a.ts")` — isConcurrencySafe = true
 - `Bash(command="npm test")` — isConcurrencySafe = false
 - `Read(file_path="b.ts")` — isConcurrencySafe = true
 
-步骤：
+**步骤**：
 1. 阅读 `addTool()` 方法，理解 `isConcurrencySafe` 的判断
 2. 阅读 `canExecuteTool()` 方法，理解并发条件
 3. 阅读 `executeTool()` 中的错误传播逻辑
 4. 如果 `npm test` 失败，其他两个工具会怎样？
 
-思考题：为什么只有 Bash 错误会触发兄弟取消，而 Read/Write 错误不会？
+**答案**：只有 Bash 错误会触发兄弟取消（sibling abort）。原因：
+- Bash 命令通常有隐式依赖链（`mkdir` 失败 → 后续 `cd` 无意义）
+- Read/WebFetch 等独立工具的错误不会影响其他工具
+
+**Java 对比**：
+```java
+// Java CompletableFuture 并发执行
+CompletableFuture.allOf(
+    readFileFuture,    // Read - 独立
+    runBashFuture,    // Bash - 可能失败
+    readFileFuture2    // Read - 独立
+).exceptionally(e -> {
+    // 如果 Bash 失败，是否取消其他任务？
+    // Claude Code 选择：是
+    // Java 开发者可选择：否
+    return null;
+});
+```
 
 ### 练习 3：Hook 权限决策的优先级
 
-目标：理解 Hook 和规则系统的交互。
+**目标**：理解 Hook 和规则系统的交互。
 
-阅读 `resolveHookPermissionDecision()` (toolHooks.ts:332)，回答：
+**类比 Java**：这类似于 Spring Security 的 `AccessDecisionVoter` 链——多个投票器按优先级决定访问权限。
 
-1. 如果 Hook 返回 `allow`，但 settings.json 中有 deny 规则，最终结果是什么？
-2. 如果 Hook 返回 `allow` 且提供了 `updatedInput`，`requiresUserInteraction` 的工具有什么特殊行为？
-3. 如果 Hook 返回 `ask`，权限对话框会显示什么消息？
+**问题答案**：
+
+1. **Hook allow + deny 规则**
+   - 结果：**deny 规则优先**
+   - Hook 不能绕过 settings.json 的 deny 规则（安全不变量）
+
+2. **Hook allow + updatedInput + requiresUserInteraction**
+   - 行为：`updatedInput` 会被应用，但对话框仍会显示
+   - Hook 可以修改输入但不能跳过用户确认
+
+3. **Hook ask**
+   - 对话框显示 Hook 提供的消息 + 原始工具调用的上下文
+   - 用户可选择 Allow/Deny/Cancel
+
+**Java 类比**：
+```java
+// Spring Security AccessDecisionManager
+public void decide(Authentication auth, Object obj, Collection<ConfigAttribute> attrs) {
+    for (AccessDecisionVoter voter : voters) {
+        int result = voter.vote(auth, obj, attrs);
+        switch (result) {
+            case ACCESS_DENIED:
+                throw new AccessDeniedException("denied");
+            // ... 其他处理
+        }
+    }
+}
+
+// Claude Code 的 resolveHookPermissionDecision 类似
+// 但优先级是：deny > ask > allow（而非票数多数决）
+
+---
+
+### 练习 4：理解错误分类与重试
+
+**目标**：理解 `classifyToolError()` 的作用以及哪些错误可以重试。
+
+**场景**：网络抖动导致 API 请求失败，哪些情况应该重试？
+
+**答案**：
+
+| 错误类型 | 可重试 | 原因 |
+|---------|--------|------|
+| `Error:ETIMEDOUT` | ✅ | 临时网络问题 |
+| `Error:ECONNRESET` | ✅ | 连接被重置，可能恢复 |
+| `Error:EACCES` | ❌ | 权限问题，重试无效 |
+| `Error:ENOENT` | ❌ | 文件不存在，重试无效 |
+
+**代码路径**：
+```typescript
+// toolExecution.ts
+function classifyToolError(error: unknown): string {
+  if (error instanceof TelemetrySafeError) return error.telemetryMessage
+  if (error instanceof Error) {
+    const errnoCode = getErrnoCode(error)
+    if (typeof errnoCode === 'string') return `Error:${errnoCode}`
+  }
+  return 'UnknownError'
+}
+```
+
+**Java 对比**：类似于 Java 的异常类型层次，`IOException` 可重试，`SecurityException` 不可重试。
+
+---
+
+### 练习 5：StreamingToolExecutor 的锁机制
+
+**目标**：理解 StreamingToolExecutor 如何实现工具的并发控制。
+
+**类比 Java**：类似于 `ReentrantLock` 的条件锁——同一时刻只允许一定数量的同类操作。
+
+**问题**：如果设置 `maxConcurrent = 2`，以下场景如何执行？
+
+```
+Tool A (Read)
+Tool B (Read) 
+Tool C (Bash)
+Tool D (Read)
+```
+
+**答案**：
+
+执行顺序：
+1. A (Read) - 获取 Read 锁
+2. B (Read) - Read 锁已被 A 占用，但 Read 可并发，maxConcurrent=2 允许
+3. C (Bash) - 获取 Bash 锁，maxConcurrent=2 还剩一个名额
+4. D (Read) - 必须等 A 或 B 释放 Read 锁
+
+**锁机制**：
+```typescript
+// 同一个 tool.name 互斥
+// 不同 Read 工具共享 Read 锁
+// maxConcurrent 限制总并发数
+```
+
+**Java 对比**：
+```java
+// Semaphore 控制总并发
+Semaphore sem = new Semaphore(2);
+
+// Read 操作
+sem.acquire();
+try { /* 读文件 */ } finally { sem.release(); }
+
+// Bash 操作
+sem.acquire();
+try { /* 执行命令 */ } finally { sem.release(); }
+```
+```
+
+---
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | 分类器提前启动 = 延迟隐藏 + 异步缓存 |
+| 2 | 只有 Bash 错误取消兄弟（隐式依赖链） |
+| 3 | deny 规则 > Hook allow（安全不变量） |
+| 4 | ETIMEDOUT/ECONNRESET 可重试，EACCES/ENOENT 不可 |
+| 5 | 同一 tool.name 互斥，Read 可并发，maxConcurrent 限制总数 |
 
 ---
 
 ## 下一篇
 
-[下一章：权限系统 (Permission System) →](05-permission-system.md)
+👉 [05-permission-system.md](./05-permission-system.md) — 权限系统

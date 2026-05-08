@@ -276,7 +276,192 @@ export class TermIO {
 
 ---
 
-## 7. 关键源码文件索引
+---
+
+## 练习
+
+### 练习 1：Ink 与 React 的区别
+
+**问题**：Ink 是如何用 React 组件方式构建 CLI UI 的？它和传统 React DOM 渲染有什么不同？
+
+**答案**：
+
+| 方面 | React DOM | Ink |
+|------|-----------|-----|
+| 渲染目标 | HTML DOM | 终端 ANSI 控制码 |
+| 布局引擎 | CSS Flexbox | Yoga (C++ Native) |
+| 更新方式 | Virtual DOM diff | 自定义 Reconciler |
+| 组件写法 | JSX | JSX（语法相同） |
+
+**Ink 的核心思想**：
+```typescript
+// 相同语法，不同渲染目标
+const App = () => <Box><Text>Hello</Text></Box>
+
+// React DOM → <div>Hello</div>
+// Ink → ANSI 控制码 → 终端显示
+```
+
+**Java 对比**：类似于 Swing/AWT 的自定义组件渲染，但使用声明式 UI 语法。
+
+---
+
+### 练习 2：Yoga 布局引擎
+
+**问题**：为什么 Ink 选择 Yoga 作为布局引擎？它和 CSS Flexbox 有什么关系？
+
+**答案**：
+
+**Yoga 的优势**：
+1. **跨平台**：iOS、Android、CLI、PDF
+2. **确定性**：C 实现，跨平台行为一致
+3. **性能**：Native 代码，渲染速度快
+
+**Flexbox 对比**：
+```typescript
+// CSS
+.box {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+// Ink (Yoga)
+<Box justifyContent="center" alignItems="center">
+  <Text>Hello</Text>
+</Box>
+```
+
+**Java 对比**：类似于 Java Swing 的 `GroupLayout`，但更接近 CSS Flexbox 的灵活性。
+
+---
+
+### 练习 3：TermIO 原始模式
+
+**问题**：`enableRawMode()` 和 `disableRawMode()` 的作用是什么？为什么需要原始模式？
+
+**答案**：
+
+**默认模式（Cooked Mode）**：
+- 行缓冲：用户按 Enter 才发送输入
+- 行编辑：Backspace 删除字符
+- 信号处理：Ctrl+C 发送 SIGINT
+
+**原始模式（Raw Mode）**：
+- 无缓冲：每个按键立即可用
+- 无处理：直接读取按键序列
+- 无信号：Ctrl+C 作为普通按键
+
+```typescript
+// 启用原始模式
+term.enableRawMode()  // 游戏、编辑器需要立即响应按键
+
+// 读取按键
+const key = term.readKey()  // 返回 KeyEvent
+
+// 恢复
+term.disableRawMode()  // 退出时必须恢复
+```
+
+---
+
+### 练习 4：自定义 Reconciler
+
+**问题**：Ink 如何实现自定义 Reconciler？它的作用是什么？
+
+**答案**：
+
+**Reconciler 职责**：
+1. 挂载组件（mount）
+2. 更新组件（update）
+3. 卸载组件（unmount）
+
+```typescript
+// Ink 的 Reconciler 核心
+const reconciler = createReconciler({
+  // 挂载
+  mountRoot: (element, root) => {
+    const node = createNode(element)
+    root.appendChild(node)
+    return node
+  },
+
+  // 更新
+  updateNode: (node, newElement) => {
+    // diff 算法决定是否重新渲染
+    if (shouldUpdate(node, newElement)) {
+      reRender(node, newElement)
+    }
+  },
+
+  // 卸载
+  unmountNode: (node) => {
+    node.remove()
+  },
+})
+```
+
+**Java 对比**：类似于 Swing 的 `ComponentUI` 更新机制，但更接近 React 的 Virtual DOM diff。
+
+---
+
+### 练习 5：ANSI 颜色处理
+
+**问题**：Ink 如何处理 ANSI 转义序列？为什么需要 `AnsiProcessor`？
+
+**答案**：
+
+**ANSI 转义序列结构**：
+```
+\033[31m    ← 设置前景色为红色
+Hello
+\033[0m     ← 重置
+```
+
+**AnsiProcessor 的作用**：
+```typescript
+// 处理嵌套颜色
+term.write(ansiProcessor.process('<red>Hello</red>'))
+// 输出正确的 ANSI 序列
+
+// 防止颜色污染
+// 确保每个颜色段正确闭合
+```
+
+**常见颜色代码**：
+| 代码 | 颜色 |
+|------|------|
+| 30-37 | 前景色 |
+| 40-47 | 背景色 |
+| 0 | 重置 |
+
+---
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | React 语法 + 终端 ANSI 渲染 + Yoga 布局 |
+| 2 | Yoga=跨平台确定性 Flexbox 实现 |
+| 3 | 原始模式=立即响应按键，无缓冲无信号处理 |
+| 4 | 挂载/更新/卸载的自定义实现 |
+| 5 | 处理 ANSI 转义序列，确保颜色正确闭合 |
+
+---
+
+## 附录：Ink 组件速查
+
+| 组件 | 作用 | 类比 |
+|------|------|------|
+| `Box` | 容器，Flexbox 布局 | `div` |
+| `Text` | 文本，显示文字 | `span` |
+| `Spacer` | 空白，占据空间 | `flex: 1` |
+| `Color` | 颜色封装 | CSS color |
+| `Static` | 静态内容，不更新 | `React.memo` |
+
+---
+
+## 8. 关键源码文件索引
 
 | 文件 | 关键函数/类 | 说明 |
 |------|-----------|------|
@@ -289,3 +474,9 @@ export class TermIO {
 | `src/ink/termio/termio.ts` | `TermIO` | 终端 I/O |
 | `src/ink/termio/dec.ts` | DEC modes | DEC 私有模式 |
 | `src/components/design-system/` | `ThemedBox`, `ThemedText` | 主题组件 |
+
+---
+
+## 附录导航
+
+👈 [A01-启动流程代码.md](./A01-启动流程代码.md) | [A03-工具系统代码.md](./A03-工具系统代码.md) 👉

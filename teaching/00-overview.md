@@ -462,10 +462,100 @@ const getTool = () => require('./tools/Tool.js').Tool
 
 ## 练习
 
-1. **找入口**：阅读 `src/main.tsx` 的前 150 行，列出所有 CLI 参数（`--model`, `--print` 等）
-2. **追踪工具注册**：打开 `src/tools.ts`，在 `getAllBaseTools()` 中数一数有多少工具是默认启用的
-3. **理解状态**：阅读 `src/bootstrap/state.ts` 的 `State` 类型定义，理解有哪些全局状态
-4. **追踪一次对话**：从 `src/screens/REPL.tsx` 入手，找到用户消息如何被发送到 API 的调用链
+### 练习 1：找入口
+
+**类比 Java**：这类似于 Spring Boot 的 `CommandLineRunner` 或 `ApplicationRunner` 接口——应用启动时先跑参数解析和初始化。
+
+**答案**：
+
+阅读 `src/main.tsx` 的前 150 行，主要 CLI 参数：
+
+| 参数 | 功能 | Java 类比 |
+|------|------|----------|
+| `--model` | 选择模型 | `spring.profiles.active` |
+| `--print` | 打印模式（非交互） | `SpringApplication.run(--dry-run)` |
+| `--resume` | 恢复会话 | Hibernate Session reattach |
+| `--add-mcp-server` | 添加 MCP 服务器 | JDBC Driver registration |
+| `--claude-code-dir` | 指定配置目录 | `spring.config.location` |
+
+### 练习 2：追踪工具注册
+
+**答案**：
+
+`src/tools.ts` 中的 `getAllBaseTools()` 返回约 30+ 工具。核心工具：
+
+| 类别 | 数量 | 示例 |
+|------|------|------|
+| 文件操作 | 5 | Read, Edit, Write, Glob, Grep |
+| Shell | 2 | Bash, Shell |
+| Web | 2 | WebFetch, WebSearch |
+| Agent | 3 | Agent, TaskCreate, SendMessage |
+| MCP | 动态 | 取决于配置 |
+
+**Java 对比**：这类似于 Spring 的 `HandlerAdapter` 注册表——每个 adapter 处理特定类型的 handler。
+
+### 练习 3：理解状态
+
+**答案**：
+
+`src/bootstrap/state.ts` 的 `State` 类型包含：
+
+| 状态 | 类型 | 用途 |
+|------|------|------|
+| `sessionId` | Signal | 会话唯一标识 |
+| `mainLoopModel` | Signal | 当前模型选择 |
+| `totalCostUSD` | Signal | 累计费用（遥测） |
+| `modelUsage` | Signal | 按模型统计用量 |
+| `originalCwd` | string | 启动目录 |
+| `projectRoot` | string | 项目根目录 |
+
+**Java 对比**：
+- Signal 类似于 `AtomicReference` + `Consumer` 监听器
+- `createSignal<T>(initial)` 创建一个响应式变量
+
+### 练习 4：追踪对话流程
+
+**答案**：
+
+调用链：
+```
+REPL.tsx → createUserMessage() → messages.ts
+  → claude.ts (API 调用) → 流式响应
+  → tool_use 块 → toolExecution.ts
+  → tool.call() → tool_result
+  → 循环直到模型停止
+```
+
+**Java 对比**：这类似于 Spring MVC 的请求处理链：
+```
+DispatcherServlet → HandlerMapping → HandlerAdapter → Controller
+  → Service → DAO → Response
+```
+
+---
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | CLI 参数在 main.tsx，--model/--print/--resume 等 |
+| 2 | 约 30+ 工具，getAllBaseTools() 返回 |
+| 3 | State 含 sessionId/model/cost 等全局状态 |
+| 4 | REPL → messages → API → toolExecution → tool_result |
+
+---
+
+## 全局架构 vs Java Spring
+
+| 方面 | Claude Code | Java Spring |
+|------|-------------|-------------|
+| 入口 | main.tsx (Commander.js) | main() + CommandLineRunner |
+| 状态 | createSignal() 全局单例 | @Bean singleton |
+| 工具注册 | tools.ts (getAllBaseTools) | HandlerAdapter registry |
+| 上下文 | API 消息列表 | HttpServletRequest |
+| 拦截器 | PreToolUse/PostToolUse Hooks | HandlerInterceptor |
+| 配置 | settings.json | application.yml |
+| 模块化 | Feature flags (bun:bundle) | @Conditional |
 
 ---
 

@@ -20,6 +20,159 @@
 | 记忆与持久化 | [09-memory-and-persistence.md](./09-memory-and-persistence.md) | [A09-记忆系统代码.md](./appendix/A09-记忆系统代码.md) |
 | Skills 与插件 | [10-skills-and-plugins.md](./10-skills-and-plugins.md) | [A10-插件系统代码.md](./appendix/A10-插件系统代码.md) |
 | API 与远程 | [11-api-and-remote.md](./11-api-and-remote.md) | [A11-API通信代码.md](./appendix/A11-API通信代码.md) |
+| TypeScript vs Java | [12-typescript-vs-java.md](./12-typescript-vs-java.md) | （跨语言对比，无独立代码详解） |
+| TypeScript 实战 | [附录](./appendix/A13-TypeScript实战.md) | （实战技巧与迁移指南） |
+
+---
+
+## 学习路径推荐
+
+### 路径 1：核心流程优先（推荐首次学习）
+
+```
+00-overview.md (全局架构)
+    ↓
+01-entry-and-bootstrap.md + A01 (启动流程)
+    ↓
+03-tool-system.md + A03 (工具系统)
+    ↓
+04-tool-execution.md + A04 (工具执行)
+    ↓
+05-permission-system.md + A05 (权限系统)
+```
+
+### 路径 2：深入理解（进阶学习）
+
+```
+06-context-and-compact.md + A06 (上下文压缩)
+    ↓
+09-memory-and-persistence.md + A09 (记忆系统)
+    ↓
+08-agent-and-team.md + A08 (Agent 协作)
+    ↓
+10-skills-and-plugins.md + A10 (插件系统)
+```
+
+### 路径 3：集成与扩展（专家学习）
+
+```
+07-mcp-integration.md + A07 (MCP 协议)
+    ↓
+11-api-and-remote.md + A11 (API 通信)
+    ↓
+02-ink-terminal-ui.md + A02 (UI 渲染)
+    ↓
+A13-TypeScript实战 (实战技巧)
+```
+
+---
+
+## 核心代码片段速查
+
+### 工具执行管线
+
+| 代码段 | 文件 | 说明 |
+|--------|------|------|
+| `runToolUse()` | `src/services/tools/toolExecution.ts:337` | 工具执行入口 |
+| `checkPermissionsAndCallTool()` | `src/services/tools/toolExecution.ts:599` | 权限检查与执行 |
+| `StreamingToolExecutor` | `src/services/tools/StreamingToolExecutor.ts:40` | 并发执行器 |
+| `runPreToolUseHooks()` | `src/services/tools/toolHooks.ts:50` | Pre 工具 Hook |
+| `runPostToolUseHooks()` | `src/services/tools/toolHooks.ts:80` | Post 工具 Hook |
+
+### 上下文管理
+
+| 代码段 | 文件 | 说明 |
+|--------|------|------|
+| `compactConversation()` | `src/services/compact/compact.ts:100` | 压缩主函数 |
+| `groupMessagesByApiRound()` | `src/services/compact/grouping.ts:30` | 消息分组 |
+| `stripImagesFromMessages()` | `src/services/compact/compact.ts:183` | 图片剥离 |
+| `applyMicroCompaction()` | `src/services/compact/microCompact.ts:60` | 微压缩 |
+| `trySessionMemoryCompaction()` | `src/services/compact/sessionMemoryCompact.ts:90` | 会话记忆压缩 |
+
+### Agent 系统
+
+| 代码段 | 文件 | 说明 |
+|--------|------|------|
+| `AgentTool.call()` | `src/tools/AgentTool/AgentTool.tsx:200` | Agent 工具入口 |
+| `runAgent()` | `src/tools/AgentTool/runAgent.ts:306` | Agent 执行循环 |
+| `buildForkedMessages()` | `src/tools/AgentTool/forkSubagent.ts:466` | Fork 上下文构建 |
+| `writeToMailbox()` | `src/utils/mailbox.ts:50` | 消息投递 |
+| `readTeamFile()` | `src/utils/swarm/teamHelpers.ts:30` | 团队文件读取 |
+
+### API 通信
+
+| 代码段 | 文件 | 说明 |
+|--------|------|------|
+| `createMessageStream()` | `src/services/api/claude.ts:100` | 消息流创建 |
+| `normalizeMessagesForAPI()` | `src/services/api/claude.ts:50` | 消息标准化 |
+| `withRetry()` | `src/services/api/withRetry.ts:30` | 重试逻辑 |
+| `classifyToolError()` | `src/services/tools/toolExecution.ts:150` | 错误分类 |
+| `parseStreamEvent()` | `src/services/api/claude.ts:200` | 流事件解析 |
+
+### 权限系统
+
+| 代码段 | 文件 | 说明 |
+|--------|------|------|
+| `hasPermissionsToUseTool()` | `src/utils/permissions/permissions.ts:50` | 权限检查入口 |
+| `checkRuleBasedPermissions()` | `src/utils/permissions/permissions.ts:100` | 规则匹配 |
+| `classifyBashCommand()` | `src/utils/permissions/bashClassifier.ts:30` | Bash 分类 |
+| `shouldFallbackToPrompting()` | `src/utils/permissions/denialTracking.ts:40` | 拒绝追踪 |
+
+### MCP 集成
+
+| 代码段 | 文件 | 说明 |
+|--------|------|------|
+| `connectToMCPServer()` | `src/services/mcp/mcpCore.ts:50` | 连接初始化 |
+| `discoverMCPTools()` | `src/services/mcp/mcpCore.ts:150` | 工具发现 |
+| `createTransport()` | `src/services/mcp/transport/index.ts:30` | 传输层工厂 |
+| `handleElicitationRequest()` | `src/services/mcp/elicitation.ts:50` | Elicitation 处理 |
+
+---
+
+## 模块调用关系图
+
+```
+用户输入
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│ main.tsx                                               │
+│  ├── CLI 参数解析                                       │
+│  └── launchRepl()                                      │
+└─────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│ REPL Screen                                            │
+│  ├── PromptInput (用户输入)                            │
+│  └── MessageList (消息展示)                            │
+└─────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│ tools.ts → Tool 接口                                   │
+│  ├── FileReadTool                                     │
+│  ├── BashTool                                         │
+│  ├── AgentTool                                        │
+│  └── ... (30+ 工具)                                    │
+└─────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│ toolExecution.ts                                      │
+│  ├── runToolUse() ← 工具执行入口                       │
+│  ├── checkPermissionsAndCallTool() ← 权限检查          │
+│  └── StreamingToolExecutor ← 并发控制                  │
+└─────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│ services/api/claude.ts                                │
+│  ├── createMessageStream() ← API 调用                  │
+│  └── normalizeMessagesForAPI() ← 消息标准化            │
+└─────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────┐
+│ compact.ts                                            │
+│  ├── compactConversation() ← 上下文压缩                 │
+│  └── applyMicroCompaction() ← 微压缩                   │
+└─────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -49,42 +202,6 @@
 
 ---
 
-## 核心代码片段速查
-
-### 工具执行管线
-
-| 代码段 | 文件 | 说明 |
-|--------|------|------|
-| `runToolUse()` | `src/services/tools/toolExecution.ts:337` | 工具执行入口 |
-| `checkPermissionsAndCallTool()` | `src/services/tools/toolExecution.ts:599` | 权限检查与执行 |
-| `StreamingToolExecutor` | `src/services/tools/StreamingToolExecutor.ts:40` | 并发执行器 |
-
-### 上下文管理
-
-| 代码段 | 文件 | 说明 |
-|--------|------|------|
-| `compactConversation()` | `src/services/compact/compact.ts:100` | 压缩主函数 |
-| `groupMessagesByApiRound()` | `src/services/compact/grouping.ts:30` | 消息分组 |
-| `stripImagesFromMessages()` | `src/services/compact/compact.ts:183` | 图片剥离 |
-
-### Agent 系统
-
-| 代码段 | 文件 | 说明 |
-|--------|------|------|
-| `AgentTool.call()` | `src/tools/AgentTool/AgentTool.tsx:200` | Agent 工具入口 |
-| `runAgent()` | `src/tools/AgentTool/runAgent.ts:306` | Agent 执行循环 |
-| `buildForkedMessages()` | `src/tools/AgentTool/forkSubagent.ts:466` | Fork 上下文构建 |
-
-### API 通信
-
-| 代码段 | 文件 | 说明 |
-|--------|------|------|
-| `createMessageStream()` | `src/services/api/claude.ts:100` | 消息流创建 |
-| `normalizeMessagesForAPI()` | `src/services/api/claude.ts:50` | 消息标准化 |
-| `withRetry()` | `src/services/api/withRetry.ts:30` | 重试逻辑 |
-
----
-
 ## 使用方法
 
 1. **按需查阅**：根据学习进度查阅相关模块的代码讲解
@@ -102,3 +219,16 @@
 2. 确保代码行号与实际位置一致
 3. 添加的中文注释应准确反映代码意图
 4. 避免引入与代码无关的外部解释
+
+---
+
+## 快速问答
+
+**Q: 找不到某个功能的代码？**
+A: 使用 `grep -r "functionName" src/` 在源码中搜索
+
+**Q: 代码行号对不上？**
+A: 源码可能已更新，以实际文件为准，练习题答案具有通用性
+
+**Q: 如何验证理解是否正确？**
+A: 尝试向他人解释代码逻辑，能讲清楚说明理解到位

@@ -527,15 +527,120 @@ Agent 的 transcript 被存储在 `~/.claude/projects/<path>/subagents/` 目录�
 
 ## 练习
 
-1. **CLAUDE.md 加载**：阅读 `src/utils/claudemd.ts`，追踪 `@include` 指令的解析逻辑。理解循环引用防护机制和文件扩展名白名单的作用。
+### 练习 1：CLAUDE.md 加载
 
-2. **会话记忆阈值**：阅读 `src/services/SessionMemory/sessionMemory.ts` 和 `sessionMemoryUtils.ts`。理解 `shouldExtractMemory()` 的三重阈值（初始化 token / 更新 token / 工具调用数）如何协同工作，以及为什么最后一个 assistant turn 不能有工具调用。
+**类比 Java**：这类似于 Spring 的 `@PropertySource` 或 `@Import` — 分层加载配置，优先级高的覆盖优先级低的。
 
-3. **持久记忆提取**：阅读 `src/services/extractMemories/extractMemories.ts` 和 `prompts.ts`。理解为什么记忆提取使用 fork agent 模式而不是直接写入——考虑 prompt cache 共享和上下文隔离。
+**答案**：
 
-4. **会话 JSONL**：阅读 `src/utils/sessionStorage.ts` 中的写入函数。理解 `recordSidechainTranscript()` 的 `lastRecordedUuid` 参数如何维护消息的 parent chain。
+加载优先级（低 → 高）：
+| 优先级 | 来源 | 路径 |
+|--------|------|------|
+| 1（最低） | Managed | `/etc/claude-code/CLAUDE.md` |
+| 2 | User | `~/.claude/CLAUDE.md` |
+| 3 | Project | `CLAUDE.md` / `.claude/CLAUDE.md` / `.claude/rules/*.md` |
+| 4 | Local | `CLAUDE.local.md` |
+| 5（最高） | AutoMem | `memory/` 目录 |
 
-5. **设置同步**：追踪 `getCurrentProjectConfig()` 和 `saveCurrentProjectConfig()` 的调用链。理解 `.claude/settings.json` 和 `.claude/settings.local.json` 的区别，以及为什么 `settings.local.json` 不被 git 追踪。
+**@include 循环引用防护**：
+- 维护 `Set<string>` 追踪已处理文件
+- 文件路径哈希或规范化路径去重
+
+### 练习 2：会话记忆阈值
+
+**答案**：
+
+三重阈值协同工作：
+
+| 阈值 | 作用 | 为什么 |
+|------|------|--------|
+| 初始化 token | 首次提取前最少消息量 | 避免过早提取浪费资源 |
+| 更新 token | 两次提取间的最小间隔 | 控制提取频率 |
+| 工具调用数 | 两次提取间最少工具调用 | 确保有新工作内容 |
+
+**为什么最后 assistant turn 不能有工具调用？**
+- 工具调用可能在进行中，提取会丢失进行中的状态
+- 需要等待工具全部完成才能安全提取
+
+### 练习 3：持久记忆提取
+
+**答案**：
+
+**为什么用 fork agent 模式？**
+
+| 方面 | 直接写入 | Fork Agent |
+|------|---------|-----------|
+| Prompt Cache | 无共享 | 共享主会话 cache |
+| 上下文隔离 | 可能污染主上下文 | 独立上下文 |
+| 权限控制 | 继承主会话权限 | 可限制工具白名单 |
+
+**Java 对比**：
+```java
+// 类似 Spring 的 @Async 任务
+@Async
+void extractMemory() {
+    // 后台执行，不阻塞主流程
+}
+```
+
+### 练习 4：会话 JSONL
+
+**答案**：
+
+`lastRecordedUuid` 维护 parent chain：
+```
+消息A (uuid: "aaa")
+  → 消息B (parentUuid: "aaa")
+    → 消息C (parentUuid: "bbb") // 错误：父消息不存在
+```
+
+**Java 对比**：
+```java
+// Hibernate 的 parent entity tracking
+@Entity
+class Message {
+    @Id String id;
+    String parentId; // 类似 parentUuid
+}
+```
+
+### 练习 5：设置同步
+
+**答案**：
+
+| 文件 | 用途 | Git 追踪 |
+|------|------|----------|
+| `.claude/settings.json` | 项目配置 | 是 |
+| `.claude/settings.local.json` | 本地覆盖 | 否（.gitignore） |
+
+**为什么 local 不追踪？**
+- 可能包含敏感信息（API keys, paths）
+- 不同开发者可能有不同本地设置
+
+---
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | 优先级：Managed < User < Project < Local；用 Set 防循环 |
+| 2 | 三重阈值协同；工具调用未完成时不能提取 |
+| 3 | fork 共享 prompt cache + 上下文隔离 |
+| 4 | lastRecordedUuid 维护 parent chain |
+| 5 | local 不追踪（敏感信息 + 开发者差异） |
+
+---
+
+## 记忆系统 vs Java 缓存
+
+| 方面 | Claude Code | Java |
+|------|-------------|------|
+| 会话持久化 | JSONL 文件 | JPA/Hibernate entity |
+| 记忆类型 | User/Project/AutoMem | 无等价 |
+| 记忆提取 | Fork Agent 后台执行 | @Async 后台任务 |
+| 配置分层 | CLAUDE.md 多层 | @PropertySource 多层 |
+| @include | 模板复用 | @Import / @ComponentScan |
+| 文件锁定 | 静默忽略 | 数据库行锁 |
 
 ---
 

@@ -503,15 +503,82 @@ export async function cleanupTeamDirectories(teamName: string): Promise<void> {
 
 ## 练习
 
-1. **Agent 生命周期**：阅读 `src/tools/AgentTool/AgentTool.tsx` 中的 `call()` 方法，追踪同步 Agent 和异步 Agent 的不同执行路径。理解 `runAsyncAgentLifecycle()` 在异步模式下如何管理进度和完成通知。
+### 练习 1：Agent 生命周期
 
-2. **Fork 机制**：阅读 `src/tools/AgentTool/forkSubagent.ts`，理解 `buildForkedMessages()` 如何构建共享 prompt cache 的消息。追踪 `isForkSubagentEnabled` 和 `isInForkChild` 的使用场景。
+**类比 Java**：这类似于 Java 的 `ExecutorService` 管理 `Future` 任务——有同步等待和异步回调两种模式。
 
-3. **团队管理**：阅读 `src/utils/swarm/teamHelpers.ts` 中的 `removeTeammateFromTeamFile()` 和 `cleanupSessionTeams()`。理解为什么需要区分"正常退出"和"非正常退出（SIGINT）"两种清理路径。
+**答案**：
 
-4. **消息传递**：阅读 `src/tools/SendMessageTool/SendMessageTool.ts`，追踪结构化消息（shutdown_request / plan_approval_response）和自由文本消息的不同投递方式。
+| 模式 | 行为 | Java 类比 |
+|------|------|----------|
+| sync | 阻塞主线程，共享 abortController | `Future.get()` |
+| async | 后台执行，独立 abortController | `CompletableFuture.thenAccept()` |
+| teammate | 独立 pane，同进程隔离 | `ForkJoinPool` |
 
-5. **权限隔离**：在 `src/tools/AgentTool/runAgent.ts` 中追踪 `agentGetAppState()` 函数，理解子代理的权限模式如何与父级交互（何时继承、何时覆盖）。
+### 练习 2：Fork 机制
+
+**答案**：
+
+**共享 prompt cache 的原理**：
+```
+主会话消息 → [user: hi, assistant: hi]
+                 ↓ buildForkedMessages()
+子代理消息 → [user: hi, assistant: hi, user: 分析这个文件]
+```
+
+**使用场景**：
+- `isForkSubagentEnabled`：Explorer、Plan 等一次性任务
+- `isInForkChild`：防止无限递归 fork
+
+### 练习 3：团队清理
+
+**答案**：
+
+| 退出类型 | 清理方式 | 原因 |
+|---------|---------|------|
+| 正常退出 | 优雅清理资源 | 允许成员完成收尾工作 |
+| SIGINT | 强制杀进程 | 不可取消的终止信号 |
+
+### 练习 4：消息传递
+
+**答案**：
+
+| 消息类型 | 投递方式 | 说明 |
+|---------|---------|------|
+| shutdown_request | 邮箱系统 | 协调关闭流程 |
+| plan_approval_response | 邮箱系统 | 计划审批 |
+| 自由文本 | 邮箱系统 | 通过工具调用传递 |
+
+### 练习 5：权限隔离
+
+**答案**：
+- **继承**：子代理默认继承父级的权限模式
+- **覆盖**：`mode` 参数可显式指定子代理的权限模式
+- **隔离**：`createSubagentContext()` 创建独立的上下文
+
+---
+
+## Agent vs Java 多线程
+
+| 方面 | Claude Code Agent | Java 线程 |
+|------|-----------------|----------|
+| 创建 | `AgentTool` 工具 | `new Thread()` |
+| 上下文 | fork/subagent | `InheritableThreadLocal` |
+| 通信 | SendMessage | `BlockingQueue` |
+| 隔离 | AsyncLocalStorage | 进程/ClassLoader |
+| 生命周期 | 自动管理 | 手动管理 |
+
+---
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | sync=阻塞，async=独立线程，teammate=进程隔离 |
+| 2 | fork 克隆消息共享 prompt cache |
+| 3 | SIGINT 强制杀进程，正常退出优雅清理 |
+| 4 | 消息通过邮箱系统投递 |
+| 5 | 默认继承父级，可显式覆盖 |
 
 ---
 
