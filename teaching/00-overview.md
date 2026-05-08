@@ -108,7 +108,7 @@ src/
          ▼            ▼             ▼
 ┌──────────────────────────────────────────────────────────┐
 │               App.tsx (React Context 树)                   │
-│  AppStateProvider → StatsProvider → FpsMetricsProvider     │
+│  FpsMetricsProvider → StatsProvider → AppStateProvider     │
 │  └── MailboxProvider (Agent 间通信)                        │
 │      └── VoiceProvider (语音模式)                          │
 └──────────────────────┬───────────────────────────────────┘
@@ -288,7 +288,7 @@ bootstrap/state.ts
   └── ... 其他运行时状态
 ```
 
-这是一个用 `createSignal()` 实现的**响应式全局状态**，不依赖 React，可以在任何地方访问。
+这是一个用 `createSignal()` 实现的**响应式全局状态**（来自 `src/utils/signal.ts` 的自定义实现，非 React），可以在任何地方访问。
 
 ### 6.2 React 状态 (`state/AppStateStore.ts`)
 
@@ -336,7 +336,7 @@ const getTeamCreateTool = () =>
 - `name` — 工具名称
 - `prompt` — 给模型的工具描述
 - `inputSchema` — Zod 定义的参数 schema
-- `execute()` — 执行逻辑
+- `call()` — 执行逻辑
 - `isEnabled()` — 是否可用
 - `validate()` — 参数验证
 

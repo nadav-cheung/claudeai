@@ -497,4 +497,4 @@ settingsChangeDetector.subscribe(async (changes) => {
 
 ## 下一篇
 
-[11-api-and-remote.md](11-api-and-remote.md) — API 通信与远程连接，包括 Anthropic API 调用流、流式响应、OAuth 认证、远程会话、Bridge 模式和多云支持。
+[11-api-and-remote.md](./11-api-and-remote.md) — API 通信与远程连接，包括 Anthropic API 调用流、流式响应、OAuth 认证、远程会话、Bridge 模式和多云支持。

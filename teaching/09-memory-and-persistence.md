@@ -271,8 +271,8 @@ If the user explicitly asks you to remember something, save it immediately as wh
 
 [四类记忆类型定义: user, feedback, project, reference — 见 memoryTypes.ts]
 
-## How to save memories
-Saving a memory is a two-step process:
+## 如何保存记忆
+保存记忆是一个两步过程：
 1. write the memory to its own file (e.g., `user_role.md`) with frontmatter format
 2. add a pointer to that file in `MEMORY.md` index (max 150 chars per entry)
 ```

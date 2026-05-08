@@ -24,10 +24,10 @@ Claude Code 的 Agent 系统采用分层架构：
 ```
 主会话 (Main Session)
   │
-  ├── 同步 Agent (sync)            ← 阻塞主线程，共享 abortController
+  ├── 同步 Agent (sync)            ← 阻塞主线程，使用父级 abortController
   │     └── 直接返回结果给模型
   │
-  ├── 异步 Agent (async)           ← 后台执行，独立的 abortController
+  ├── 异步 Agent (async)           ← 后台执行，有独立的 abortController
   │     └── LocalAgentTask         ← 后台任务管理
   │     └── 完成后通知主会话
   │
@@ -62,8 +62,8 @@ Team (config.json)
 ```
 1. Fork 模式 (共享上下文)
    ├── 克隆主会话的 system prompt
-   ├── 克隆消息历史作为上下文前缀
-   ├── 共享 prompt cache → 节省 token
+   ├── 通过 buildForkedMessages() 克隆消息到子代理上下文
+   ├── 相同消息内容 → API 端利用 prompt cache（cache_control: ephemeral）
    └── 用于：Explore, Plan, 等一次性搜索任务
 
 2. 独立模式 (隔离上下文)

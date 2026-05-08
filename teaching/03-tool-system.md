@@ -100,7 +100,12 @@ export type Tool<Input, Output, P> = {
   searchHint?: string                      // ToolSearch 关键词提示
 
   // === 模型接口 ===
-  prompt(options): Promise<string>         // 返回给模型的工具描述
+  prompt(options: {
+    getToolPermissionContext: () => Promise<ToolPermissionContext>
+    tools: Tools
+    agents: AgentDefinition[]
+    allowedAgentTypes?: string[]
+  }): Promise<string>         // 返回给模型的工具描述
   description(input, options): Promise<string>  // 运行时描述（含动态信息）
   readonly inputSchema: AnyObject          // Zod 输入 schema
   outputSchema?: z.ZodType<unknown>        // Zod 输出 schema
@@ -155,10 +160,12 @@ type ToolUseContext = {
 ### 2.3 ToolResult
 
 ```typescript
+// src/Tool.ts:321
 type ToolResult<T> = {
-  data: T                              // 工具返回数据
-  newMessages?: Message[]              // 工具可以注入新消息
-  contextModifier?: (ctx) => ctx       // 修改后续上下文
+  data: T                              // 工具返回数据（必需）
+  newMessages?: (UserMessage | AssistantMessage | AttachmentMessage | SystemMessage)[]  // 工具可注入新消息
+  contextModifier?: (context: ToolUseContext) => ToolUseContext  // 修改后续上下文
+  mcpMeta?: { _meta?: Record<string, unknown>; structuredContent?: Record<string, unknown> }  // MCP 元数据
 }
 ```
 
@@ -522,15 +529,16 @@ export function assembleToolPool(permissionContext, mcpTools): Tools {
 ### 9.4 ToolResult 类型
 
 ```typescript
-// src/Tool.ts:100
+// src/Tool.ts:321（实际位置）
 type ToolResult<T> = {
-  success: boolean
-  data?: T
-  error?: string
-  newMessages?: Message[]           // 工具可注入新消息
-  contextModifier?: (ctx) => ctx    // 可修改后续上下文
+  data: T                              // 工具返回数据（必需，非可选）
+  newMessages?: (UserMessage | AssistantMessage | AttachmentMessage | SystemMessage)[]  // 可注入新消息
+  contextModifier?: (context: ToolUseContext) => ToolUseContext  // 可修改后续上下文
+  mcpMeta?: { _meta?: Record<string, unknown>; structuredContent?: Record<string, unknown> }  // MCP 元数据
 }
 ```
+
+**注意**：旧版文档曾错误地使用 `success` + `data?` + `error` 字段，实际源码中 `data` 是必需字段，不使用 `success`/`error` 模式。
 
 ---
 

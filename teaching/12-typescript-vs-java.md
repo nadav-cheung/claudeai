@@ -325,10 +325,10 @@ CompletableFuture<ToolResult> future = tool.call(input, context)
 
 | 方面 | AsyncGenerator | CompletableFuture |
 |------|---------------|-------------------|
-| 迭代方式 | `yield*` 展开 | `thenApply` 链式 |
+| 迭代方式 | `yield` 产出值，`yield*` 委托给另一个生成器 | `thenApply` 链式 |
 | 取消 | 通过 `AbortController` | 无内置取消（需 `completeExceptionally`） |
 | 背压 | 消费者控制 `next()` 调用 | 生产者控制 `request()` |
-| 组合 | `yield*` 委托 | `allOf`/`anyOf` |
+| 组合 | `yield*` 委托给其他生成器 | `allOf`/`anyOf` |
 | 错误传播 | `try/catch` 在 generator 内部 | `exceptionally` 回调 |
 
 **★ 设计思想 ─────────────────────────────────────**
@@ -544,7 +544,7 @@ LoadingCache<String, User> users = Caffeine.newBuilder()
 
 ### MCP 协议 vs JDBC 驱动
 
-MCP（Model Context Protocol）和 JDBC 都是"标准协议 + 多实现"的架构：
+MCP（Model Context Protocol）和 JDBC 都是"标准协议 + 多实现"的架构，但设计目标有本质差异：
 
 ```
 MCP 协议层：
@@ -571,6 +571,14 @@ JDBC 架构：
 | `WebSocketTransport` | 无等价物 | 双向实时 |
 | `tools/list` | `DatabaseMetaData.getTables()` | 发现可用对象 |
 | `tools/call` | `Statement.execute()` | 执行操作 |
+
+**★ 重要限制 ─────────────────────────────────────**
+MCP 与 JDBC 的类比仅限于"客户端请求 → 服务器响应"模式。MCP 的核心优势是**双向唤醒能力**：
+- **Elicitation**：服务器主动向客户端请求额外信息（如用户确认、选择列表）
+- **Server-driven prompts**：服务器主动发送建议或指令
+
+JDBC 没有等价机制——数据库永远不会主动"唤醒"JDBC 客户端。这是 AI 交互协议与传统数据访问协议的本质区别：AI 对话需要实时澄清用户意图，而非预先知道所有查询参数。
+─────────────────────────────────────────────────
 
 ---
 
