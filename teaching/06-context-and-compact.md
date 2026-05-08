@@ -193,7 +193,7 @@ export function stripImagesFromMessages(messages: Message[]): Message[] {
 src/services/compact/prompt.ts
 ```
 
-压缩提示词包含详细的分析指令和输出格式要求：
+压缩提示词由 `getCompactPrompt()` 构建（`src/services/compact/prompt.ts`），包含详细的分析指令和输出格式要求：
 
 ```
 分析指令：
@@ -214,7 +214,16 @@ src/services/compact/prompt.ts
 9. Optional Next Step — 可选的下一步
 ```
 
-还有 partial compact 变体（`PARTIAL_COMPACT_PROMPT`），只压缩部分消息而不是整个对话历史。
+Prompt 有两个版本：
+- `getCompactPrompt()` — 全量压缩用，摘要覆盖全部历史
+- `getPartialCompactPrompt(direction)` — 部分压缩用，`direction='from'` 压缩 pivot 之后，`direction='up_to'` 压缩 pivot 之前
+
+还有 **Partial Compact**（部分压缩）变体，通过 `partialCompactConversation()` 实现，只压缩部分消息而不是整个对话历史，支持两种方向：
+
+- **`from`** 模式：压缩 pivot 位置之后的所有消息，pivot 之前的保留（默认）
+- **`up_to`** 模式：压缩 pivot 位置之前的所有消息，pivot 之后的保留
+
+Partial Compact 用于用户手动选择压缩起点（如 `/compact` 带参数）的场景，比全量压缩更灵活。
 
 ### 微压缩 MicroCompact (microCompact.ts)
 

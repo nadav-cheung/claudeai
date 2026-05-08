@@ -8,6 +8,63 @@
 
 Claude Code 的工具是模型与外部世界交互的唯一通道。每当 Claude 模型决定执行操作时，它会返回一个 `tool_use` 块，由工具执行引擎调度到对应的工具实现。
 
+**工具全列表**（`getAllBaseTools()` 中所有工具，按源码顺序）：
+
+| 工具名 | 文件路径 | 条件 |
+|--------|---------|------|
+| **核心工具** |||
+| AgentTool | `tools/AgentTool/` | 默认 |
+| TaskOutputTool | `tools/TaskOutputTool/` | 默认 |
+| BashTool | `tools/BashTool/` | 默认 |
+| GlobTool | `tools/GlobTool/` | 无嵌入式搜索时 |
+| GrepTool | `tools/GrepTool/` | 无嵌入式搜索时 |
+| ExitPlanModeV2Tool | `tools/ExitPlanModeTool/` | 默认 |
+| FileReadTool | `tools/FileReadTool/` | 默认 |
+| FileEditTool | `tools/FileEditTool/` | 默认 |
+| FileWriteTool | `tools/FileWriteTool/` | 默认 |
+| NotebookEditTool | `tools/NotebookEditTool/` | 默认 |
+| WebFetchTool | `tools/WebFetchTool/` | 默认 |
+| TodoWriteTool | `tools/TodoWriteTool/` | 默认 |
+| WebSearchTool | `tools/WebSearchTool/` | 默认 |
+| TaskStopTool | `tools/TaskStopTool/` | 默认 |
+| AskUserQuestionTool | `tools/AskUserQuestionTool/` | 默认 |
+| SkillTool | `tools/SkillTool/` | 默认 |
+| EnterPlanModeTool | `tools/EnterPlanModeTool/` | 默认 |
+| ConfigTool | `tools/ConfigTool/` | ANT 构建 |
+| TungstenTool | `tools/TungstenTool/` | ANT 构建 |
+| SuggestBackgroundPRTool | `tools/SuggestBackgroundPRTool/` | — |
+| WebBrowserTool | `tools/WebBrowserTool/` | `WEB_BROWSER_TOOL` |
+| TaskCreateTool / TaskGetTool / TaskUpdateTool / TaskListTool | `tools/Task*Tool/` | `TODO_V2` |
+| OverflowTestTool | `tools/OverflowTestTool/` | `OVERFLOW_TEST_TOOL` |
+| CtxInspectTool | `tools/CtxInspectTool/` | `CONTEXT_COLLAPSE` |
+| TerminalCaptureTool | `tools/TerminalCaptureTool/` | `TERMINAL_PANEL` |
+| LSPTool | `tools/LSPTool/` | `ENABLE_LSP_TOOL` |
+| EnterWorktreeTool / ExitWorktreeTool | `tools/WorktreeTool/` | `WORKTREE_MODE` |
+| SendMessageTool | `tools/SendMessageTool/` | 默认 |
+| ListPeersTool | `tools/ListPeersTool/` | `UDS_INBOX` |
+| TeamCreateTool / TeamDeleteTool | `tools/Team*Tool/` | `AGENT_SWARMS` |
+| VerifyPlanExecutionTool | `tools/VerifyPlanExecutionTool/` | — |
+| REPLTool | `tools/REPLTool/` | ANT 构建 |
+| WorkflowTool | `tools/WorkflowTool/` | `WORKFLOW_SCRIPTS` |
+| SleepTool | `tools/SleepTool/` | — |
+| CronCreateTool / CronDeleteTool / CronListTool | `tools/ScheduleCronTool/` | `AGENT_TRIGGERS` |
+| RemoteTriggerTool | `tools/RemoteTriggerTool/` | `AGENT_TRIGGERS_REMOTE` |
+| MonitorTool | `tools/MonitorTool/` | `MONITOR_TOOL` |
+| BriefTool | `tools/BriefTool/` | 默认 |
+| SendUserFileTool | `tools/SendUserFileTool/` | `KAIROS` |
+| PushNotificationTool | `tools/PushNotificationTool/` | — |
+| SubscribePRTool | `tools/SubscribePRTool/` | `KAIROS_GITHUB_WEBHOOKS` |
+| PowerShellTool | `tools/PowerShellTool/` | — |
+| SnipTool | `tools/SnipTool/` | `HISTORY_SNIP` |
+| TestingPermissionTool | `tools/testing/TestingPermissionTool/` | 测试模式 |
+| ListMcpResourcesTool | `tools/ListMcpResourcesTool/` | 默认 |
+| ReadMcpResourceTool | `tools/ReadMcpResourceTool/` | 默认 |
+| ToolSearchTool | `tools/ToolSearchTool/` | 乐观检查 |
+| **动态工具** |||
+| MCPTool | `tools/MCPTool/` | 运行时来自 MCP 服务器 |
+
+注：部分工具通过 Feature Flag 条件加载（`feature('XXX')`），默认不启用。
+
 ```
 Claude 模型响应
   │ 返回 tool_use 块 { name: "Bash", input: { command: "ls" } }
@@ -363,7 +420,7 @@ Claude Code 对工具 prompt 做了精心优化以最大化 API 缓存命中：
 
 1. **排序稳定**：工具按名称排序，确保不同用户间一致
 2. **内置在前**：内置工具作为连续前缀，MCP 工具在后
-3. **条件工具**：只在特定条件下加载的工具用 `feature()` 控制
+3. **条件工具**：只在特定条件下加载的工具用 `feature()` 控制（需先 `import { feature } from 'bun:bundle'`）
 4. **延迟加载**：`ToolSearchTool` 可将不常用工具延迟加载
 
 ---

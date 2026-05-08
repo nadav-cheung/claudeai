@@ -187,6 +187,57 @@ Ink 的事件系统支持：
 - **焦点事件**：`onFocus` / `onBlur`
 - **输入事件**：`useInput()` hook
 
+### 5.1 `parse-keypress.ts` — 键盘解析层
+
+文件：`src/ink/parse-keypress.ts`
+
+这是键盘输入解析的核心模块，负责将终端的原始字节流转换为结构化的按键事件。核心函数是 `parseMultipleKeypresses()`，它是一个**状态机**，每次调用传入上次状态，返回本轮按键和更新后的状态。
+
+**输入 → 输出**
+
+```typescript
+// 输入：上次状态 + 本次原始字节
+parseMultipleKeypresses(prevState, rawInput)
+// → [[ParsedInput, ...], newState]
+```
+
+**三种输出类型**
+
+| 类型 | 说明 | 示例 |
+|------|------|------|
+| `ParsedKey` | 标准按键，含修饰符 | `Ctrl+C`、`Shift+Enter`、`↑` |
+| `ParsedMouse` | 鼠标事件 | 点击、拖拽、滚轮 |
+| `ParsedResponse` | 终端对查询的响应 | 鼠标模式状态、光标位置 |
+
+**按键名称映射**（`keyName` 表）
+
+覆盖所有主流终端的按键编码：
+- XTerm ESC 序列：`ESC [ A` → `up`，`ESC O P` → `f1`
+- 应用数字键盘模式：`ESC Op` → `0`，`ESC OM` → `return`
+- 修饰键变体：`ESC [ a` → `shift+up`，`ESC [ 2$` → `shift+insert`
+
+**三大键盘协议支持**
+
+```
+1. XTerm 传统序列   — 几乎所有终端都支持，基础
+2. Kitty 键盘协议   — CSI u 格式：ESC[13;2u = Shift+Enter
+3. modifyOtherKeys   — xterm 扩展：ESC[27;2;13~
+```
+
+ Kitty 协议修饰符编码：`1 + shift(1) + alt(2) + ctrl(4) + super(8)`，例如 `ESC[13;2u` 中 `2` = Shift。
+
+**粘贴检测**
+
+终端发送 `ESC[200~` 开始粘贴、`ESC[201~` 结束粘贴。解析器在粘贴期间将所有内容累积为单个 `isPasted: true` 的按键，避免逐字处理。
+
+**鼠标事件**
+
+支持 SGR 格式（`CSI < btn;col;row M/m`）和 X10 格式。滚轮事件作为 `ParsedKey`（`wheelup`/`wheeldown`）传递给按键绑定系统；点击/拖拽作为 `ParsedMouse` 单独处理。
+
+**终端响应过滤**
+
+终端响应（DECRPM、DA1 光标位置报告等）与按键在语法上可区分（都以 ESC 开头但模式不同），在按键解析前就被过滤出来，交给响应处理器。
+
 ---
 
 ## 6. Claude Code 的 UI 组件库
@@ -265,7 +316,9 @@ const { columns, rows } = useTerminalSize()
 
 ## 8. React Compiler 优化
 
-Claude Code 使用了 **React Compiler**（原 React Forget），源码中可以看到编译器的产物：
+Claude Code 使用了 **React Compiler**（原 React Forget），这是 React 官方的自动优化编译器。源码中看到的是**编译后的产物**，开发者写的原始 JSX 已经被转换成了带缓存检查的形式。
+
+阅读技巧：重点看 JSX 结构（`t1 = <...>` 部分），缓存逻辑（`$[0]`、`$[1]`）是编译器自动插入的，不要尝试手动理解每一行缓存更新逻辑。
 
 ```typescript
 // 编译前的源码（推断）

@@ -342,12 +342,28 @@ const getTeamCreateTool = () =>
 
 ### 7.4 React Compiler 优化
 
+Claude Code 源码经过 **React Compiler**（原 React Forget）处理，这是 React 官方的自动优化编译器。编译器会在编译时分析组件依赖，自动插入 `useMemo`、`useCallback` 等优化，生成如下产物：
+
 ```typescript
-// 源码被 React Compiler 处理，会插入 memo 缓存
-const $ = _c(13);  // compiler-runtime 的缓存实例
+// 编译前（开发者写的源码）
+function App({ children }) {
+  return <div>{children}</div>
+}
+
+// 编译后（实际在源码文件中看到）
+function App(t0) {
+  const $ = _c(9);  // React Compiler 的缓存槽
+  const { children } = t0;
+  // 依赖变化时自动失效，无需手动 memo
+}
 ```
 
-组件函数中会出现 `_c()` 调用和 `$[n]` 缓存，这是 React Compiler 自动插入的优化。
+关键识别点：
+- `_c(N)` — 创建缓存实例的调用，N 是编译器分配的槽号
+- `$[0]`、`$[1]` — 缓存的变量槽，存的是上次渲染的值
+- `if ($[0] !== x || $[1] !== y)` — 编译后自动生成的相等性检查
+
+这不是手动写的代码，是编译器产物。阅读源码时遇到这些可以跳过，核心逻辑在上面的 JSX 里。
 
 ---
 

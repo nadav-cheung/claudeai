@@ -54,7 +54,7 @@ startKeychainPrefetch();
 const getTeamCreateTool = () =>
   require('./tools/TeamCreateTool/TeamCreateTool.js').TeamCreateTool
 
-// 模式2: Feature flag 条件加载
+// 模式2: Feature flag 条件加载（需先 import { feature } from 'bun:bundle'）
 const coordinatorModeModule = feature('COORDINATOR_MODE')
   ? require('./coordinator/coordinatorMode.js')
   : null
@@ -110,7 +110,19 @@ eagerLoadSettings();
 initializeEntrypoint(isNonInteractive);
 
 // cc:// URL 处理（Direct Connect 功能）
-// 检查 argv 中是否有 cc:// 或 cc+unix:// URL
+// 需先 import { feature } from 'bun:bundle'
+if (feature('DIRECT_CONNECT')) {
+  const rawCliArgs = process.argv.slice(2);
+  const ccIdx = rawCliArgs.findIndex(a => a.startsWith('cc://') || a.startsWith('cc+unix://'));
+  if (ccIdx !== -1 && _pendingConnect) {
+    const ccUrl = rawCliArgs[ccIdx]!;
+    const { parseConnectUrl } = await import('./server/parseConnectUrl.js');
+    const parsed = parseConnectUrl(ccUrl);
+    _pendingConnect.url = parsed.serverUrl;
+    _pendingConnect.authToken = parsed.authToken;
+    // 非交互模式：重写为 internal `open` 子命令；交互模式：剥离 URL 后正常启动
+  }
+}
 ```
 
 ### 3.3 Commander.js 命令定义
@@ -327,10 +339,31 @@ export async function main() {
   eagerLoadSettings()
   initializeEntrypoint(isNonInteractive)
 
-  // 5. cc:// URL 处理
-  if (process.argv.some(arg => arg.startsWith('cc://'))) {
-    await handleDirectConnect(process.argv)
-    return
+  // 5. cc:// URL 处理（Direct Connect：远程连接到另一个 Claude Code 实例）
+  if (feature('DIRECT_CONNECT')) {
+    const rawCliArgs = process.argv.slice(2);
+    const ccIdx = rawCliArgs.findIndex(a => a.startsWith('cc://') || a.startsWith('cc+unix://'));
+    if (ccIdx !== -1 && _pendingConnect) {
+      const ccUrl = rawCliArgs[ccIdx]!;
+      const { parseConnectUrl } = await import('./server/parseConnectUrl.js');
+      const parsed = parseConnectUrl(ccUrl);
+      _pendingConnect.url = parsed.serverUrl;
+      _pendingConnect.authToken = parsed.authToken;
+      _pendingConnect.dangerouslySkipPermissions = rawCliArgs.includes('--dangerously-skip-permissions');
+      if (rawCliArgs.includes('-p') || rawCliArgs.includes('--print')) {
+        // headless 模式：重写为 internal `open` 子命令
+        const stripped = rawCliArgs.filter((_, i) => i !== ccIdx);
+        const dspIdx = stripped.indexOf('--dangerously-skip-permissions');
+        if (dspIdx !== -1) stripped.splice(dspIdx, 1);
+        process.argv = [process.argv[0]!, process.argv[1]!, 'open', ccUrl, ...stripped];
+      } else {
+        // 交互模式：剥离 URL 和 --dangerously-skip-permissions，继续正常启动
+        const stripped = rawCliArgs.filter((_, i) => i !== ccIdx);
+        const dspIdx = stripped.indexOf('--dangerously-skip-permissions');
+        if (dspIdx !== -1) stripped.splice(dspIdx, 1);
+        process.argv = [process.argv[0]!, process.argv[1]!, ...stripped];
+      }
+    }
   }
 
   // 6. 构建并执行 CLI
@@ -432,7 +465,7 @@ function startDeferredPrefetches(): void {
 ## 练习
 
 1. **追踪启动时间**：搜索 `profileCheckpoint` 调用，列出所有埋点位置
-2. **理解 Feature Flag**：搜索 `feature('XXX')` 模式，列出所有条件加载的模块
+2. **理解 Feature Flag**：搜索 `feature('XXX')` 模式（需先 import { feature } from 'bun:bundle'），列出所有条件加载的模块
 3. **追踪 CLI 参数**：在 `main.tsx` 中找到 Commander.js 的 `.option()` 调用，列出所有支持的参数
 4. **理解迁移系统**：阅读 `src/migrations/` 目录，理解数据迁移的工作方式
 

@@ -256,6 +256,61 @@ extractAutoMemories(context)
                 用户偏好内容...
 ```
 
+**提取 prompt 示例**（`buildExtractAutoOnlyPrompt` 的实际内容）：
+
+```
+You are now acting as the memory extraction subagent. Analyze the most recent ~N messages above and use them to update your persistent memory systems.
+
+Available tools: FileRead, GrepTool, GlobTool, read-only Bash (ls/find/cat/stat/wc/head/tail), and FileEdit/FileWrite for paths inside the memory directory only. Bash rm is not permitted.
+
+You have a limited turn budget. FileEdit requires a prior FileRead of the same file, so: turn 1 — issue all FileRead calls in parallel; turn 2 — issue all FileEdit/FileWrite calls in parallel. Do not interleave reads and writes.
+
+You MUST only use content from the last ~N messages to update your persistent memories. Do not waste turns investigating or verifying — no grepping source files, no git commands.
+
+If the user explicitly asks you to remember something, save it immediately as whichever type fits best. If they ask you to forget something, find and remove the relevant entry.
+
+[四类记忆类型定义: user, feedback, project, reference — 见 memoryTypes.ts]
+
+## How to save memories
+Saving a memory is a two-step process:
+1. write the memory to its own file (e.g., `user_role.md`) with frontmatter format
+2. add a pointer to that file in `MEMORY.md` index (max 150 chars per entry)
+```
+
+**Session Memory 模板**（会话记忆，用于 compaction 后恢复状态）：
+
+```
+# Session Title
+_A short and distinctive 5-10 word descriptive title for the session. Super info dense, no filler_
+
+# Current State
+_What is actively being worked on right now? Pending tasks not yet completed. Immediate next steps._
+
+# Task specification
+_What did the user ask to build? Any design decisions or other explanatory context_
+
+# Files and Functions
+_What are the important files? In short, what do they contain and why are they relevant?_
+
+# Workflow
+_What bash commands are usually run and in what order? How to interpret their output if not obvious?_
+
+# Errors & Corrections
+_Errors encountered and how they were fixed. What did the user correct? What approaches failed and should not be tried again?_
+
+# Codebase and System Documentation
+_What are the important system components? How do they work/fit together?_
+
+# Learnings
+_What has worked well? What has not? What to avoid? Do not duplicate items from other sections_
+
+# Key results
+_If the user asked a specific output such as an answer to a question, a table, or other document, repeat the exact result here_
+
+# Worklog
+_Step by step, what was attempted, done? Very terse summary for each step_
+```
+
 ### 会话恢复流程
 
 ```

@@ -84,6 +84,23 @@ PostToolUse Hooks (runPostToolUseHooks)
 返回结果消息
 ```
 
+**为什么 Bash 分类器要"投机性"地提前启动？**
+
+分类器在输入验证阶段（`toolExecution.ts:746`）就启动，比实际的权限检查提前了很多步。这是因为：
+
+1. **延迟隐藏**：分类是 I/O 密集型操作（需要读文件、运行规则），提前启动可以把计算时间隐藏在工具执行的早期阶段
+2. **auto 模式性能**：在 `auto` 模式下，分类器的结果直接影响权限决策（是否需要用户确认），提前算好可以让权限判断几乎零延迟
+3. **异步缓存**：`startSpeculativeClassifierCheck` 把 Promise 存入 Map，`consumeSpeculativeClassifierCheck` 在权限检查时消费 — 如果已经算好就直接用，没算好就同步等待
+
+```typescript
+// 预启动：fire-and-forget，结果暂存 Map
+speculativeChecks.set(command, promise)
+
+// 权限检查时：直接取用，无需等待
+const cached = speculativeChecks.get(command)
+const result = cached ? await cached : await classifyBashCommand(...)
+```
+
 ### 并发执行器：StreamingToolExecutor
 
 ```
@@ -320,7 +337,7 @@ if (result.updatedMCPToolOutput && isMcpTool(tool)) {
 4. 找到 `tool.call()` 的调用点 (约 L1207)
 5. 查看 BashTool 的 `call()` 方法如何使用沙箱
 
-思考题：为什么 Bash 分类器要"投机性"地提前启动，而不是等权限检查时再启动？
+思考题：为什么 Bash 分类器要"投机性"地提前启动，而不是等权限检查时再启动？（答案见上方"为什么 Bash 分类器要'投机性'地提前启动？"）
 
 ### 练习 2：分析并发执行场景
 

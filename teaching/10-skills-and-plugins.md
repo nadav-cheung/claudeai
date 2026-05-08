@@ -251,6 +251,28 @@ export type BundledSkillDefinition = {
 
 `registerBundledSkill()` 将定义转换为 `Command` 对象并推入内存注册表。如果 skill 带有 `files`，则惰性提取到临时目录（带安全写入保护 `O_NOFOLLOW | O_EXCL`）。
 
+**内建 Skill 一览**（`src/skills/bundled/index.ts`）：
+
+| Skill | 功能 | 用户可用 |
+|-------|------|---------|
+| `update-config` | 通过对话更新 `settings.json`（权限、环境变量、hook 配置） | ✅ |
+| `verify` | 在终端运行 pr-review 检查，验证代码变更 | ✅ |
+| `debug` | 读取 session debug log（Ant 用户）；开启 debug 日志并诊断（非 Ant） | ✅ |
+| `lorem-ipsum` | 生成填充文本用于长上下文测试 | ❌ ANT-only |
+| `simplify` | 审查变更代码的可复用性、质量和效率，并修复问题 | ✅ |
+| `remember` | 审查 auto-memory 条目，建议晋升到 CLAUDE.md 或清理过时条目 | ✅ |
+| `skillify` | 将 prompt 转化为可复用的 skill 文件 | ✅ |
+| `stuck` | 调查本机 frozen/stuck/slow 会话并发布诊断报告 | ❌ ANT-only |
+| `batch` | 研究并规划大规模变更，并行在 5–30 个独立 worktree agent 中执行 | ✅ |
+| `keybindings-help` | 自定义键盘快捷键、绑定序列、修改 `~/.claude/keybindings.json` | ✅ |
+| `dream` | KAIROS 模式下的梦生成 | KAIROS |
+| `hunter` | 代码审查猎手 | REVIEW_ARTIFACT |
+| `loop` | 定时循环执行任务（`/loop` 命令） | AGENT_TRIGGERS |
+| `schedule-remote-agents` | 调度远程 Agent | AGENT_TRIGGERS_REMOTE |
+| `claude-api` | Claude API 应用构建 | BUILDING_CLAUDE_APPS |
+| `claude-in-chrome` | Chrome 中的 Claude 集成 | Chrome 扩展 |
+| `run-skill-generator` | 运行 skill 生成器 | RUN_SKILL_GENERATOR |
+
 ### 2. 文件系统 Skill 加载 (src/skills/loadSkillsDir.ts)
 
 这是 skill 加载的核心逻辑，约 1080 行。关键函数：
