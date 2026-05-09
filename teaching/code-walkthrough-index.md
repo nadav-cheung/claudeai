@@ -1,6 +1,6 @@
 ---
 title: "代码讲解索引"
-description: "为 Claude Code 源码学习提供代码讲解的总索引，包含每个模块核心代码的详细解析链接。"
+description: "为 Claude Code 源码学习者提供代码讲解的完整索引，包含每个模块核心代码的详细解析和学习路径指引。"
 tags: [code, walkthrough, index, reference]
 date: 2026-05-09
 ---

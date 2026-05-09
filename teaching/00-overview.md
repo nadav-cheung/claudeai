@@ -1,6 +1,6 @@
 ---
 title: "全局架构总览"
-description: "理解 Claude Code CLI 的整体架构、模块关系、核心数据流，以及源文件组织方式。"
+description: "全面理解 Claude Code CLI 的整体架构、模块关系、核心数据流，以及源文件组织方式与设计思想。"
 tags: [architecture, overview, core-concepts]
 date: 2026-05-09
 ---
