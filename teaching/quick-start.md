@@ -250,23 +250,23 @@ Java开发者学习Claude Code的关键，是理解TypeScript的"对象字面量
 ```
 1. 入门
    └── quick-start.md（本文件）
-   └── 00-overview.md（全局架构）
+   └── 第00章-全局架构总览.md（全局架构）
 
 2. 核心流程
-   └── 01-entry-and-bootstrap.md（启动）
-   └── 03-tool-system.md（工具）
-   └── 04-tool-execution.md（执行）
+   └── 第01章-入口与启动流程.md（启动）
+   └── 第03章-工具系统.md（工具）
+   └── 第04章-工具执行与安全.md（执行）
 
 3. 安全与协作
-   └── 05-permission-system.md（权限）
-   └── 08-agent-and-team.md（Agent）
+   └── 第05章-权限系统.md（权限）
+   └── 第08章-Agent与多Agent协作.md（Agent）
 
 4. 深入主题
-   └── 06-context-and-compact.md（压缩）
-   └── 09-memory-and-persistence.md（记忆）
-   └── 10-skills-and-plugins.md（插件）
+   └── 第06章-上下文管理与压缩.md（压缩）
+   └── 第09章-记忆与持久化.md（记忆）
+   └── 第10章-Skills与插件系统.md（插件）
 
 5. 实战
    └── A01-A13（代码详解）
-   └── 12-typescript-vs-java.md（语言对比）
+   └── 第12章-TypeScript实战对比.md（语言对比）
 ```

@@ -517,4 +517,4 @@ export const fetchClaudeAIMcpConfigsIfEligible = memoize(async () => {
 
 ## 下一篇
 
-[08-agent-and-team.md](./08-agent-and-team.md) — Agent 与多 Agent 协作
+[第08章-Agent与多Agent协作.md](./第08章-Agent与多Agent协作.md) — Agent 与多 Agent 协作

@@ -15,19 +15,19 @@ date: 2026-05-09
 
 | 模块 | 文档 | 代码讲解附录 |
 |------|------|-------------|
-| 全局架构 | [00-overview.md](./00-overview.md) | （架构概述，无独立代码详解） |
-| 入口与启动 | [01-entry-and-bootstrap.md](./01-entry-and-bootstrap.md) | [A01-启动流程代码.md](./appendix/A01-启动流程代码.md) |
-| 终端 UI | [02-ink-terminal-ui.md](./02-ink-terminal-ui.md) | [A02-UI渲染代码.md](./appendix/A02-UI渲染代码.md) |
-| 工具系统 | [03-tool-system.md](./03-tool-system.md) | [A03-工具系统代码.md](./appendix/A03-工具系统代码.md) |
-| 工具执行 | [04-tool-execution.md](./04-tool-execution.md) | [A04-工具执行代码.md](./appendix/A04-工具执行代码.md) |
-| 权限系统 | [05-permission-system.md](./05-permission-system.md) | [A05-权限系统代码.md](./appendix/A05-权限系统代码.md) |
-| 上下文压缩 | [06-context-and-compact.md](./06-context-and-compact.md) | [A06-压缩系统代码.md](./appendix/A06-压缩系统代码.md) |
-| MCP 集成 | [07-mcp-integration.md](./07-mcp-integration.md) | [A07-MCP集成代码.md](./appendix/A07-MCP集成代码.md) |
-| Agent 与团队 | [08-agent-and-team.md](./08-agent-and-team.md) | [A08-Agent代码.md](./appendix/A08-Agent代码.md) |
-| 记忆与持久化 | [09-memory-and-persistence.md](./09-memory-and-persistence.md) | [A09-记忆系统代码.md](./appendix/A09-记忆系统代码.md) |
-| Skills 与插件 | [10-skills-and-plugins.md](./10-skills-and-plugins.md) | [A10-插件系统代码.md](./appendix/A10-插件系统代码.md) |
-| API 与远程 | [11-api-and-remote.md](./11-api-and-remote.md) | [A11-API通信代码.md](./appendix/A11-API通信代码.md) |
-| TypeScript vs Java | [12-typescript-vs-java.md](./12-typescript-vs-java.md) | （跨语言对比，无独立代码详解） |
+| 全局架构 | [第00章-全局架构总览.md](./第00章-全局架构总览.md) | （架构概述，无独立代码详解） |
+| 入口与启动 | [第01章-入口与启动流程.md](./第01章-入口与启动流程.md) | [A01-启动流程代码.md](./appendix/A01-启动流程代码.md) |
+| 终端 UI | [第02章-终端UI框架.md](./第02章-终端UI框架.md) | [A02-UI渲染代码.md](./appendix/A02-UI渲染代码.md) |
+| 工具系统 | [第03章-工具系统.md](./第03章-工具系统.md) | [A03-工具系统代码.md](./appendix/A03-工具系统代码.md) |
+| 工具执行 | [第04章-工具执行与安全.md](./第04章-工具执行与安全.md) | [A04-工具执行代码.md](./appendix/A04-工具执行代码.md) |
+| 权限系统 | [第05章-权限系统.md](./第05章-权限系统.md) | [A05-权限系统代码.md](./appendix/A05-权限系统代码.md) |
+| 上下文压缩 | [第06章-上下文管理与压缩.md](./第06章-上下文管理与压缩.md) | [A06-压缩系统代码.md](./appendix/A06-压缩系统代码.md) |
+| MCP 集成 | [第07章-MCP协议集成.md](./第07章-MCP协议集成.md) | [A07-MCP集成代码.md](./appendix/A07-MCP集成代码.md) |
+| Agent 与团队 | [第08章-Agent与多Agent协作.md](./第08章-Agent与多Agent协作.md) | [A08-Agent代码.md](./appendix/A08-Agent代码.md) |
+| 记忆与持久化 | [第09章-记忆与持久化.md](./第09章-记忆与持久化.md) | [A09-记忆系统代码.md](./appendix/A09-记忆系统代码.md) |
+| Skills 与插件 | [第10章-Skills与插件系统.md](./第10章-Skills与插件系统.md) | [A10-插件系统代码.md](./appendix/A10-插件系统代码.md) |
+| API 与远程 | [第11章-API通信与远程.md](./第11章-API通信与远程.md) | [A11-API通信代码.md](./appendix/A11-API通信代码.md) |
+| TypeScript vs Java | [第12章-TypeScript实战对比.md](./第12章-TypeScript实战对比.md) | （跨语言对比，无独立代码详解） |
 | TypeScript 实战 | [附录](./appendix/A13-TypeScript实战.md) | （实战技巧与迁移指南） |
 
 ---
