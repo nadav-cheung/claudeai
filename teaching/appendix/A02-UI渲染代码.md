@@ -49,7 +49,7 @@ export async function createRoot(
     unmount: () => reconciler.destroy(root),
   }
 }
-```
+```java
 
 ---
 
@@ -92,7 +92,7 @@ function createReconciler(config: ReconcilerConfig) {
     },
   })
 }
-```
+```typescript
 
 ---
 
@@ -134,7 +134,7 @@ export function createNode(
     childNodes: [],
   }
 }
-```
+```java
 
 ---
 
@@ -181,7 +181,7 @@ function setStyle(node: DOMElement, style: Styles): void {
     yogaNode.setFlex(style.flex)
   }
 }
-```
+```typescript
 
 ---
 
@@ -240,7 +240,7 @@ function renderNode(
 
   return output
 }
-```
+```typescript
 
 ---
 
@@ -279,7 +279,7 @@ export class TermIO {
     process.stdout.write(ansiProcessor.process(output))
   }
 }
-```
+```java
 
 ---
 
@@ -307,7 +307,7 @@ const App = () => <Box><Text>Hello</Text></Box>
 
 // React DOM → <div>Hello</div>
 // Ink → ANSI 控制码 → 终端显示
-```
+```java
 
 **Java 对比**：类似于 Swing/AWT 的自定义组件渲染，但使用声明式 UI 语法。
 
@@ -337,7 +337,7 @@ const App = () => <Box><Text>Hello</Text></Box>
 <Box justifyContent="center" alignItems="center">
   <Text>Hello</Text>
 </Box>
-```
+```java
 
 **Java 对比**：类似于 Java Swing 的 `GroupLayout`，但更接近 CSS Flexbox 的灵活性。
 
@@ -368,7 +368,7 @@ const key = term.readKey()  // 返回 KeyEvent
 
 // 恢复
 term.disableRawMode()  // 退出时必须恢复
-```
+```java
 
 ---
 
@@ -406,7 +406,7 @@ const reconciler = createReconciler({
     node.remove()
   },
 })
-```
+```text
 
 **Java 对比**：类似于 Swing 的 `ComponentUI` 更新机制，但更接近 React 的 Virtual DOM diff。
 
@@ -419,11 +419,11 @@ const reconciler = createReconciler({
 **答案**：
 
 **ANSI 转义序列结构**：
-```
+```text
 \033[31m    ← 设置前景色为红色
 Hello
 \033[0m     ← 重置
-```
+```java
 
 **AnsiProcessor 的作用**：
 ```typescript
@@ -433,7 +433,7 @@ term.write(ansiProcessor.process('<red>Hello</red>'))
 
 // 防止颜色污染
 // 确保每个颜色段正确闭合
-```
+```text
 
 **常见颜色代码**：
 | 代码 | 颜色 |

@@ -58,7 +58,7 @@ export async function* createMessageStream(
     yield parseStreamEvent(event)
   }
 }
-```
+```typescript
 
 ---
 
@@ -92,7 +92,7 @@ function normalizeMessage(message: Message): APICompatibleMessage {
     content: normalizeContent(message.content),
   }
 }
-```
+```typescript
 
 ---
 
@@ -147,7 +147,7 @@ export function parseStreamEvent(event: RawStreamEvent): StreamEvent {
 
   return { type: 'error', error: `Unknown event: ${event.type}` }
 }
-```
+```typescript
 
 ---
 
@@ -209,7 +209,7 @@ function defaultShouldRetry(error: unknown): boolean {
   if (error instanceof NetworkError) return true
   return false
 }
-```
+```typescript
 
 ---
 
@@ -263,7 +263,7 @@ export async function authenticateWithOAuth(): Promise<OAuthTokens> {
 
   return tokenResponse
 }
-```
+```typescript
 
 ---
 
@@ -309,7 +309,7 @@ export class PromptTooLongError extends APIError {
     super('Prompt too long', 400, 'PROMPT_TOO_LONG')
   }
 }
-```
+```java
 
 ---
 
@@ -338,7 +338,7 @@ interface APIMessage {
   role: 'user' | 'assistant'
   content: string | ContentBlock[]
 }
-```
+```java
 
 **转换原因**：
 1. API 有固定的字段要求
@@ -355,7 +355,7 @@ function normalizeMessagesForAPI(messages: Message[]): APIMessage[] {
       content: m.content  // 可能是 string 或 ContentBlock[]
     }))
 }
-```
+```text
 
 ---
 
@@ -366,13 +366,13 @@ function normalizeMessagesForAPI(messages: Message[]): APIMessage[] {
 **答案**：
 
 **SSE 格式**：
-```
+```text
 event: content_block_delta
 data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}
 
 event: message_stop
 data: {"type":"message_stop"}
-```
+```text
 
 **解析逻辑**：
 ```typescript
@@ -397,7 +397,7 @@ function parseStreamEvent(lines: string[]): StreamEvent | null {
     data: parsed
   }
 }
-```
+```java
 
 ---
 
@@ -434,7 +434,7 @@ async function withRetry<T>(
   }
   throw new Error('Max retries exceeded')
 }
-```
+```text
 
 ---
 
@@ -447,7 +447,7 @@ async function withRetry<T>(
 **PKCE 作用**：防止授权码被拦截
 
 **完整流程**：
-```
+```text
 1. 客户端生成 code_verifier（随机字符串）
 2. 计算 code_challenge = SHA256(code_verifier)
 3. 打开浏览器，跳转到授权页面（含 code_challenge）
@@ -455,7 +455,7 @@ async function withRetry<T>(
 5. 客户端收到 code
 6. 用 code + code_verifier 换取 token
 7. 服务器验证 code_challenge
-```
+```java
 
 **关键代码**：
 ```typescript
@@ -466,7 +466,7 @@ const codeChallenge = await sha256Hash(codeVerifier)  // S256
 const token = await fetch('/token', {
   body: { code, code_verifier: codeVerifier }
 })
-```
+```text
 
 ---
 
@@ -476,14 +476,14 @@ const token = await fetch('/token', {
 
 **答案**：
 
-```
+```text
 Error
   └── APIError (基类)
         ├── RateLimitError (429)
         ├── AuthenticationError (401)
         ├── QuotaExceededError (403)
         └── PromptTooLongError (400)
-```
+```java
 
 **使用场景**：
 ```typescript
@@ -498,7 +498,7 @@ try {
     // 显示配额不足
   }
 }
-```
+```text
 
 ---
 

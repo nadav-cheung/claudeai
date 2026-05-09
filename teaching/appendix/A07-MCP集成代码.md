@@ -42,7 +42,7 @@ export interface MCPConnectionConfig {
   timeout?: number
   retryCount?: number
 }
-```
+```typescript
 
 ### 1.1 传输类型对比
 
@@ -106,7 +106,7 @@ export async function connectToMCPServer(
     connectedAt: Date.now(),
   }
 }
-```
+```typescript
 
 ### 2.2 工具发现
 
@@ -147,7 +147,7 @@ export async function discoverMCPTools(
     },
   }))
 }
-```
+```typescript
 
 ---
 
@@ -196,7 +196,7 @@ export class MCPTool implements Tool {
     return `${this.toolName}: MCP tool from ${this.serverName}`
   }
 }
-```
+```typescript
 
 ---
 
@@ -232,7 +232,7 @@ export async function handleElicitationRequest(
   // 2. 返回用户输入
   return response
 }
-```
+```typescript
 
 ---
 
@@ -271,7 +271,7 @@ export async function performMCP OAuthFlow(
   // 5. 存储 token
   await storeOAuthToken(serverConfig.name, tokenResponse)
 }
-```
+```text
 
 ---
 
@@ -294,7 +294,7 @@ export async function performMCP OAuthFlow(
 | 通信协议 | 函数调用 | MCP JSON-RPC |
 
 **MCP 调用流程**：
-```
+```text
 Claude Code → MCPTool.call() → JSON-RPC Request
                                          ↓
                               MCP Server (外部进程)
@@ -302,7 +302,7 @@ Claude Code → MCPTool.call() → JSON-RPC Request
                               JSON-RPC Response
                                          ↓
                               MCPTool 返回 ToolResult
-```
+```text
 
 **Java 对比**：类似于 RMI 或 WebService 调用，但使用标准化的 JSON-RPC 协议。
 
@@ -320,21 +320,21 @@ Claude Code → MCPTool.call() → JSON-RPC Request
 | **HTTP** | 远程服务 | 可网络访问 | 延迟较高 |
 
 **Stdio 传输模型**：
-```
+```text
 Claude Code              MCP Server
      │                       │
      │  ←── stdin ──────────  │
      │  ─── stdout ────────→  │
      │  ─── stderr ────────→  │
-```
+```text
 
 **HTTP 传输模型**：
-```
+```text
 Claude Code              MCP Server
      │                       │
      │  ──── HTTP POST ────→  │
      │  ←─── HTTP Response ──  │
-```
+```java
 
 ---
 
@@ -363,7 +363,7 @@ async function discoverMCPTools(client: MCPClient) {
   // 3. 转换为 MCPTool 实例
   return tools.map(tool => new MCPTool(tool))
 }
-```
+```java
 
 **发现时机**：
 1. MCP 服务器连接时（`initialize` 阶段）
@@ -389,10 +389,10 @@ interface ElicitationRequest {
     enum: ["UTF-8", "GBK", "ISO-8859-1"]
   }
 }
-```
+```text
 
 **处理流程**：
-```
+```text
 MCP Server → elicitation request
     ↓
 Claude Code 显示对话框
@@ -400,7 +400,7 @@ Claude Code 显示对话框
 用户选择/输入
     ↓
 返回响应给 MCP Server
-```
+```java
 
 **Java 对比**：类似于 Swing 的 `JOptionPane.showInputDialog()`。
 
@@ -430,7 +430,7 @@ POST /token
   code: "xxx",
   code_verifier: "yyy"  // 服务器验证 S256(code_verifier) === code_challenge
 }
-```
+```text
 
 **Java 对比**：类似于 OAuth 2.0 的 Authorization Code Flow with PKCE。
 

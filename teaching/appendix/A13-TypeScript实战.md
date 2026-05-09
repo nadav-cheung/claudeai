@@ -34,7 +34,7 @@ class InMemoryUserService implements UserService {
 function doSomething(service: UserService) {
   // service 必有 findById 和 findAll 方法
 }
-```
+```java
 
 ```java
 // Java: 必须显式声明 implements
@@ -44,7 +44,7 @@ public class InMemoryUserService implements UserService {
     @Override
     public List<User> findAll() { /* ... */ }
 }
-```
+```java
 
 ### 1.2 泛型的对应
 
@@ -68,7 +68,7 @@ interface Repository<T, ID> {
   save(entity: T): Promise<T>;
   delete(id: ID): Promise<void>;
 }
-```
+```java
 
 ```java
 // Java: 泛型约束
@@ -86,7 +86,7 @@ public interface Repository<T, ID> {
     T save(T entity);
     void delete(ID id);
 }
-```
+```java
 
 ### 1.3 访问修饰符
 
@@ -104,7 +104,7 @@ class Example {
     this.createdAt = new Date();
   }
 }
-```
+```java
 
 ```java
 // Java: 四种访问级别
@@ -116,7 +116,7 @@ public class Example {
     // Java 使用 final
     public final Date createdAt = new Date();
 }
-```
+```java
 
 ---
 
@@ -149,7 +149,7 @@ const CompanySchema = z.object({
 
 // 联合类型
 const StatusSchema = z.enum(['pending', 'active', 'suspended']);
-```
+```java
 
 ### 2.2 运行时验证
 
@@ -168,7 +168,7 @@ if (result.success) {
   // 处理验证错误
   console.error(result.error.issues);
 }
-```
+```java
 
 ### 2.3 从 schema 生成类型
 
@@ -190,7 +190,7 @@ interface User {
 function createUser(input: unknown): User {
   return UserSchema.parse(input);  // 抛错如果验证失败
 }
-```
+```java
 
 ### 2.4 transform 和预处理
 
@@ -211,7 +211,7 @@ const query = QuerySchema.parse({
   tags: 'ai,machine-learning',
 });
 // { page: 2, pageSize: 50, tags: ['ai', 'machine-learning'] }
-```
+```java
 
 ---
 
@@ -239,7 +239,7 @@ for await (const page of fetchPages('https://api.example.com/data')) {
   console.log(`Processing page ${page.number}`);
   await processPage(page);
 }
-```
+```java
 
 ```java
 // Java: 响应式流方式
@@ -259,7 +259,7 @@ Flux<Page> fetchPages(String url) {
         }
     );
 }
-```
+```java
 
 ### 3.2 Promise.all 并发执行
 
@@ -285,7 +285,7 @@ results.forEach((result, i) => {
     console.error(`User ${i + 1} failed:`, result.reason);
   }
 });
-```
+```java
 
 ### 3.3 AbortController 取消操作
 
@@ -306,7 +306,7 @@ try {
   }
   throw error;
 }
-```
+```typescript
 
 ---
 
@@ -331,7 +331,7 @@ const getModule = async () => {
 // re-export
 export { createSignal, createEffect } from './signal';
 export type { Tool } from './Tool';
-```
+```java
 
 ### 4.2 条件导入（Feature Flag）
 
@@ -347,7 +347,7 @@ const coordinatorModule = feature('COORDINATOR_MODE')
 if (process.env.NODE_ENV === 'production') {
   import('./productionLogger.js').then(m => m.init());
 }
-```
+```typescript
 
 ### 4.3 循环依赖处理
 
@@ -375,7 +375,7 @@ import { Repository } from '../shared/interfaces';
 export class ServiceA {
   constructor(private repo: Repository) {}
 }
-```
+```java
 
 ---
 
@@ -396,7 +396,7 @@ type ReturnType<T> = T extends (...args: any[]) => infer R ? R : never;
 // 根据字段是否存在决定类型
 type FieldType<T, K extends keyof T> =
   T[K] extends undefined ? string : T[K];
-```
+```java
 
 ### 5.2 映射类型
 
@@ -415,7 +415,7 @@ type Exclude<T, U> = T extends U ? never : T;
 
 // 实际应用：让特定属性可选
 type UpdateUser = Partial<Pick<User, 'name' | 'email'>>;
-```
+```java
 
 ### 5.3 模板字面量类型
 
@@ -430,7 +430,7 @@ type EventName = `on${Capitalize<string>}`;
 function isMcpToolName(name: string): name is McpToolName {
   return /^mcp__[\w]+__[\w]+$/.test(name);
 }
-```
+```java
 
 ---
 
@@ -463,7 +463,7 @@ if (result.success) {
 } else {
   console.error(result.error.message);
 }
-```
+```java
 
 ### 6.2 自定义 Error 类
 
@@ -501,7 +501,7 @@ const errors = {
   validation: (details: Record<string, unknown>) =>
     new AppError('Validation failed', 'VALIDATION_ERROR', 400, details),
 };
-```
+```java
 
 ---
 
@@ -540,7 +540,7 @@ class UserService {
     return { id, name: 'User' };
   }
 }
-```
+```java
 
 ```java
 // Java: 注解方式
@@ -551,7 +551,7 @@ public class UserService {
         return new User(id, "User");
     }
 }
-```
+```typescript
 
 ### 7.2 反射元数据
 
@@ -583,7 +583,7 @@ class CreateUserRequest {
   @required email: string;
   age?: number;
 }
-```
+```text
 
 ---
 
@@ -591,7 +591,7 @@ class CreateUserRequest {
 
 ### 8.1 项目结构
 
-```
+```text
 my-cli/
 ├── src/
 │   ├── main.ts           # 入口
@@ -606,7 +606,7 @@ my-cli/
 │       └── logger.ts
 ├── package.json
 └── tsconfig.json
-```
+```java
 
 ### 8.2 命令行参数解析
 
@@ -632,7 +632,7 @@ program
   });
 
 program.parse();
-```
+```java
 
 ### 8.3 完整示例
 
@@ -665,7 +665,7 @@ program
   });
 
 program.parse();
-```
+```typescript
 
 ```typescript
 // src/commands/greet.ts
@@ -679,7 +679,7 @@ export const greetCommand = new Command('greet')
     const message = `Hello, ${options.name}!`;
     console.log(options.uppercase ? message.toUpperCase() : message);
   });
-```
+```java
 
 ---
 
@@ -702,7 +702,7 @@ export default defineConfig({
     },
   },
 });
-```
+```java
 
 ### 9.2 单元测试
 
@@ -739,7 +739,7 @@ describe('Signal', () => {
     expect(subscriber).not.toHaveBeenCalled();
   });
 });
-```
+```java
 
 ### 9.3 Mock 外部依赖
 
@@ -766,7 +766,7 @@ it('should debounce calls', async () => {
 
   expect(fn).toHaveBeenCalledTimes(1);
 });
-```
+```java
 
 ---
 
@@ -798,7 +798,7 @@ const expensiveOperation = memoize((n: number) => {
 
 expensiveOperation(5);  // Computing... 10
 expensiveOperation(5);  // 直接返回缓存 10
-```
+```java
 
 ### 10.2 大数据流处理
 
@@ -825,7 +825,7 @@ const users = await getAllUsers();
 const processed = await processInBatches(users, 100, (batch) =>
   Promise.all(batch.map(u => transformUser(u)))
 );
-```
+```java
 
 ### 10.3 避免内存泄漏
 
@@ -848,7 +848,7 @@ class Component {
     this.subscriptions = [];
   }
 }
-```
+```java
 
 ---
 
@@ -892,7 +892,7 @@ const users: Map<string, User> = new Map<string, User>()
 
 // 类型推断（TypeScript 风格）
 const users = new Map<string, User>()  // 推断出 Map<string, User>
-```
+```java
 
 **何时用显式标注**：
 - 公共 API 的参数和返回值
@@ -927,7 +927,7 @@ const UserSchema = z.object({
 function processInput(input: z.infer<typeof UserSchema>) {
   // 编译时 + 运行时检查
 }
-```
+```java
 
 ---
 
@@ -950,7 +950,7 @@ async function* streamMessages(): AsyncGenerator<string> {
     yield chunk  // 逐步产出
   }
 }
-```
+```typescript
 
 **优势**：
 1. **内存效率**：不需要等待全部完成
@@ -986,7 +986,7 @@ export class ServiceA implements UserService { ... }
 
 // service-b.ts - 只依赖接口
 import type { UserService } from './types'  // type import 避免实际导入
-```
+```java
 
 ---
 
@@ -1013,7 +1013,7 @@ const sessionId = state.sessionId
 sessionId.get()                    // 读取当前值
 sessionId.set('new-session')      // 更新值
 sessionId.subscribe(id => ...)     // 订阅变化
-```
+```text
 
 **Java 对比**：Signal 类似于 RxJava 的 `BehaviorSubject`，Promise 类似于 `CompletableFuture`。
 

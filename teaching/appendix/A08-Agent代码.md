@@ -39,7 +39,7 @@ const isolationSchema = z.object({
   isolation: z.enum(['worktree', 'remote']).optional(),
   cwd: z.string().optional(),
 })
-```
+```java
 
 ### 1.2 执行模式判断
 
@@ -73,7 +73,7 @@ async function call(input, context) {
   // 同步模式：直接执行
   return runSyncAgent(input, context, agentDefinition)
 }
-```
+```java
 
 ### 1.3 工具池组装
 
@@ -95,7 +95,7 @@ async function assembleAgentToolPool(input, context, agentDefinition) {
   // 应用 allowedTools 限制
   return filterToolsByAllowList(toolPool, allowedTools)
 }
-```
+```typescript
 
 ---
 
@@ -172,7 +172,7 @@ export async function* runAgent({
     killShellTasksForAgent(agentId)
   }
 }
-```
+```typescript
 
 ---
 
@@ -210,7 +210,7 @@ function filterIncompleteToolCalls(messages: Message[]): Message[] {
     return { ...msg, content: filteredContent }
   })
 }
-```
+```java
 
 **Fork vs 独立模式的区别**：
 
@@ -272,7 +272,7 @@ async function call(input, context) {
     }
   }
 }
-```
+```java
 
 ### 4.1 团队文件格式
 
@@ -298,7 +298,7 @@ type TeamFile = {
     mode?: PermissionMode
   }>
 }
-```
+```java
 
 ---
 
@@ -346,7 +346,7 @@ async function call(input, context) {
     result: { delivered: true, recipients: address.type === 'broadcast' ? 'all' : to }
   }
 }
-```
+```java
 
 ### 5.1 Mailbox 机制
 
@@ -366,7 +366,7 @@ async function writeToMailbox(agentId: string, message: ProtocolMessage): Promis
   mailbox.unreadCount++
   await writeMailbox(mailboxPath, mailbox)
 }
-```
+```text
 
 ---
 
@@ -386,7 +386,7 @@ async function writeToMailbox(agentId: string, message: ProtocolMessage): Promis
 | **Team** | 多个 Agent 协作的组织 | 管理 Agent 的容器 |
 
 **Team 结构**：
-```
+```text
 Team
 ├── Lead Agent (主控)
 │   ├── 协调其他 Agent
@@ -395,7 +395,7 @@ Team
     ├── Researcher
     ├── Coder
     └── Reviewer
-```
+```java
 
 **Java 对比**：
 - Agent 类似于 Thread/Task
@@ -427,7 +427,7 @@ const subagentAgent = await runAgent({
   prompt: "协作子任务",
   parentSession: currentSession  // 共享 session
 })
-```
+```text
 
 ---
 
@@ -444,17 +444,17 @@ type Mailbox = {
   unreadCount: number
   lastReadTimestamp: number
 }
-```
+```text
 
 **消息传递流程**：
-```
+```text
 Agent A                    Mailbox                    Agent B
    │                           │                           │
    │  writeToMailbox() ──────→ │                           │
    │                           │                           │
    │                           │  ←────── readMailbox()   │
    │                           │                           │
-```
+```text
 
 **消息类型**：
 - `shutdown_request` / `shutdown_response`
@@ -472,7 +472,7 @@ Agent A                    Mailbox                    Agent B
 **答案**：
 
 **Leader-Member 模式**：
-```
+```text
 User
   ↓
 Team Lead (主 Agent)
@@ -484,7 +484,7 @@ Team Lead (主 Agent)
 Team Lead
   ↓ 汇总
 User
-```
+```java
 
 **协作流程**：
 1. Lead 接收用户任务
@@ -519,7 +519,7 @@ const teammateTask = new InProcessTeammateTask({
   sharedSession: true,  // 共享父会话
   parentId: parentAgentId
 })
-```
+```text
 
 ---
 
