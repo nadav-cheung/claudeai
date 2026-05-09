@@ -15,7 +15,7 @@ date: 2026-05-09
 
 Claude Code 的通信分为多个层次：
 
-```
+```text
 Claude Code CLI
   │
   ├── Anthropic API (services/api/)         ← 核心：消息流式传输
@@ -41,7 +41,7 @@ Claude Code CLI
   │     └── directConnectManager.ts         ← 连接管理
   │
   └── SSH Sessions (hooks/useSSHSession.ts) ← SSH 远程
-```
+```text
 
 ---
 
@@ -53,7 +53,7 @@ Claude Code CLI
 
 **调用流程**：
 
-```
+```text
 claude.ts → createMessageStream()
   │
   ├── 1. 准备消息
@@ -77,7 +77,7 @@ claude.ts → createMessageStream()
         ├── text 块 → 直接渲染
         ├── tool_use 块 → 工具执行循环
         └── usage 块 → 费用追踪
-```
+```text
 
 ### 消息标准化
 
@@ -89,7 +89,7 @@ normalizeMessagesForAPI(messages)
   ├── 处理图片和附件
   ├── 添加缓存断点（prompt cache）
   └── 返回 API 兼容的消息列表
-```
+```text
 
 ### 工具 Schema 转换
 
@@ -99,13 +99,13 @@ toolToAPISchema(tool)
   ├── 将 Zod schema → JSON Schema
   ├── 添加 tool description (来自 tool.prompt())
   └── 返回 Anthropic API 格式的工具定义
-```
+```text
 
 ### Prompt Cache 优化
 
 Claude Code 对 prompt cache 做了大量优化：
 
-```
+```text
 System Prompt 分层
   ├── 前缀（缓存稳定部分）
   │     ├── 工具描述（按名称排序，保持稳定）
@@ -116,7 +116,7 @@ System Prompt 分层
 
 缓存断点标记
   └── cache_control: { type: "ephemeral" }
-```
+```text
 
 ---
 
@@ -135,7 +135,7 @@ System Prompt 分层
 
 文件：`src/services/oauth/client.ts`
 
-```
+```text
 OAuth 认证流程
   │
   ├── 1. 生成 PKCE 挑战
@@ -157,16 +157,16 @@ OAuth 认证流程
   │
   └── 6. Token 自动刷新
         └── checkAndRefreshOAuthTokenIfNeeded()
-```
+```text
 
 ### API Key 管理
 
-```
+```text
 API Key 存储优先级
   ├── 环境变量 ANTHROPIC_API_KEY
   ├── Keychain (macOS) / Credential Manager (Windows)
   └── 配置文件
-```
+```text
 
 ---
 
@@ -174,7 +174,7 @@ API Key 存储优先级
 
 ### AWS Bedrock
 
-```
+```text
 配置
   ├── CLAUDE_CODE_USE_BEDROCK=1
   ├── AWS credentials (环境变量 / ~/.aws/)
@@ -182,11 +182,11 @@ API Key 存储优先级
 
 API 调用
   └── Anthropic SDK 自动路由到 Bedrock endpoint
-```
+```text
 
 ### Google Vertex AI
 
-```
+```text
 配置
   ├── CLAUDE_CODE_USE_VERTEX=1
   ├── GCP credentials (环境变量 / Application Default)
@@ -194,7 +194,7 @@ API 调用
 
 API 调用
   └── Anthropic SDK 自动路由到 Vertex endpoint
-```
+```text
 
 ---
 
@@ -206,27 +206,27 @@ API 调用
 
 远程会话允许用户将本地 CLI 连接到远程运行的 Claude Code 实例：
 
-```
+```text
 本地 CLI ─── SSH/网络 ─── 远程 Claude Code 实例
   │                            │
   │ ──发送用户输入──→           │
   │                            │ ──调用 API──→ Anthropic
   │                            │ ←──响应────
   │ ←──渲染输出──              │
-```
+```text
 
 ### Teleport 功能
 
 Teleport 允许将本地会话"传送"到远程机器：
 
-```
+```text
 Teleport 流程
   ├── 1. 验证 Git 状态（未提交更改）
   ├── 2. 上传会话数据到远程
   ├── 3. 在远程恢复会话
   ├── 4. 检出对应的 Git 分支
   └── 5. 继续 CLI 交互
-```
+```text
 
 ---
 
@@ -236,7 +236,7 @@ Teleport 流程
 
 Bridge 模式用于 IDE 集成（VS Code、JetBrains 等），让 IDE 作为前端，CLI 作为后端：
 
-```
+```text
 IDE (前端)
   │ WebSocket / stdin-stdout
   ▼
@@ -251,11 +251,11 @@ Claude Code CLI (后端)
   │
   ▼
 Anthropic API
-```
+```text
 
 ### Bridge 消息协议
 
-```
+```text
 消息类型
   ├── user_message     ← 用户从 IDE 发送的消息
   ├── assistant_message ← Claude 的回复
@@ -264,11 +264,11 @@ Anthropic API
   ├── permission_request ← 权限请求
   ├── permission_response ← 用户权限响应
   └── status_update    ← 状态更新
-```
+```text
 
 ### Bridge 生命周期
 
-```
+```text
 bridgeMain.ts
   │
   ├── 初始化
@@ -285,7 +285,7 @@ bridgeMain.ts
   └── 清理
         ├── sessionRunner.ts → 停止会话
         └── 清理资源
-```
+```text
 
 ---
 
@@ -295,7 +295,7 @@ bridgeMain.ts
 
 Direct Connect 允许通过 URL 直接连接到 Claude Code：
 
-```
+```java
 claude cc://session-id?auth=token
   │
   ▼
@@ -312,7 +312,7 @@ createDirectConnectSession.ts
   │
   └── 4. 启动 REPL
         └── 连接到远程会话
-```
+```text
 
 ---
 
@@ -322,7 +322,7 @@ createDirectConnectSession.ts
 
 SSH 模式允许通过 SSH 连接到远程机器上运行的 Claude Code：
 
-```
+```text
 本地 Claude Code CLI
   │ SSH 连接
   ▼
@@ -333,7 +333,7 @@ SSH 模式允许通过 SSH 连接到远程机器上运行的 Claude Code：
   │
   ▼
 Anthropic API
-```
+```text
 
 SSH 会话支持：
 - 自动在远程部署 CLI
@@ -349,13 +349,13 @@ SSH 会话支持：
 
 文件：`src/services/api/withRetry.ts`
 
-```
+```text
 重试条件
   ├── 429 (Rate Limit) → 指数退避重试
   ├── 500 (Server Error) → 重试
   ├── 503 (Service Unavailable) → 重试
   └── 其他错误 → 不重试，抛出
-```
+```text
 
 ### 错误类型
 
@@ -371,19 +371,19 @@ SSH 会话支持：
 
 ### 速率限制
 
-```
+```text
 速率限制处理
   ├── 读取响应头 X-RateLimit-*
   ├── 计算 remaining / reset 时间
   ├── 显示速率限制状态
   └── 自动退避等待
-```
+```text
 
 ---
 
 ## 数据流：完整请求链路
 
-```
+```text
 用户输入 "帮我修复 bug"
   │
   ▼
@@ -408,7 +408,7 @@ Anthropic API Server
   ├── 返回 text 事件 → 渲染到终端
   ├── 返回 tool_use 事件 → 工具执行
   └── 返回 usage 事件 → 费用计算
-```
+```typescript
 
 ---
 
@@ -443,7 +443,7 @@ export async function* createMessageStream(params: CreateMessageParams) {
     yield parseStreamEvent(event)
   }
 }
-```
+```typescript
 
 ### 消息标准化
 
@@ -462,7 +462,7 @@ function isAPISendable(message: Message): boolean {
   if (isCompactBoundaryMessage(message)) return false
   return true
 }
-```
+```typescript
 
 ### 重试策略
 
@@ -487,7 +487,7 @@ export async function withRetry<T>(
   }
   throw new Error('Should not reach here')
 }
-```
+```typescript
 
 ### OAuth 认证流程
 
@@ -507,7 +507,7 @@ export async function authenticateWithOAuth(): Promise<OAuthTokens> {
   const callback = await waitForOAuthCallback(callbackPort)
   return await exchangeCodeForToken(callback.code, codeVerifier)
 }
-```
+```typescript
 
 ### API 错误类型
 
@@ -541,7 +541,7 @@ export class PromptTooLongError extends APIError {
     super('Prompt too long', 400, 'PROMPT_TOO_LONG')
   }
 }
-```
+```text
 
 ---
 

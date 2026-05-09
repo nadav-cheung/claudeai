@@ -32,7 +32,7 @@ MCP (Model Context Protocol) 是一个开放协议，允许 AI 应用通过标�
 2. **Resource（资源）**：可读取的数据对象，如文件内容、数据库记录
 3. **Prompts（提示模板）**：预定义的提示词模板
 
-```
+```text
 Claude Code (MCP Client)
   │
   ├── MCP Server A (stdio)     ← 本地进程通信
@@ -45,7 +45,7 @@ Claude Code (MCP Client)
   │
   └── MCP Server C (HTTP)      ← Streamable HTTP
         └── tools: deploy_app
-```
+```java
 
 ### 服务器连接类型
 
@@ -72,7 +72,7 @@ type MCPServerConnection =
   | NeedsAuthMCPServer    // 需要认证：需要 OAuth 流程
   | PendingMCPServer      // 等待中：正在重连
   | DisabledMCPServer     // 已禁用：用户手动关闭
-```
+```text
 
 ---
 
@@ -80,7 +80,7 @@ type MCPServerConnection =
 
 ### MCP 服务架构总览
 
-```
+```text
 src/services/mcp/
 ├── client.ts              ← 核心客户端：连接、发现、执行
 ├── types.ts               ← 类型定义：配置 schema、连接状态
@@ -117,13 +117,13 @@ src/components/mcp/
 ├── MCPStdioServerMenu.tsx  ← stdio 服务器菜单
 ├── MCPRemoteServerMenu.tsx ← 远程服务器菜单
 └── MCPAgentServerMenu.tsx  ← Agent 服务器菜单
-```
+```text
 
 ### 配置加载流程
 
 `src/services/mcp/config.ts` 中的 `getClaudeCodeMcpConfigs()` 是配置加载的核心入口：
 
-```
+```text
 启动时调用 getClaudeCodeMcpConfigs()
   │
   ├── 1. getMcpConfigsByScope('enterprise')
@@ -151,7 +151,7 @@ src/components/mcp/
   └── 7. isMcpServerAllowedByPolicy()
         └── 企业策略过滤（allowlist/denylist）
             └── 支持名称、命令、URL 三种匹配模式
-```
+```typescript
 
 ### 服务器连接流程
 
@@ -187,7 +187,7 @@ export const connectToServer = memoize(
     return { type: 'connected', client, name, capabilities, ... }
   }
 )
-```
+```text
 
 **连接超时和批处理**：
 - 本地服务器（stdio）批处理大小：3（`MCP_SERVER_CONNECTION_BATCH_SIZE`）
@@ -202,7 +202,7 @@ export const connectToServer = memoize(
 
 ### MCP 工具调用完整流程
 
-```
+```text
 Claude 模型返回 tool_use: { name: "mcp__serverA__query", input: {...} }
   │
   ▼
@@ -232,16 +232,16 @@ MCPTool.call(input, context)
   │
   └── 7. 返回 ToolResult
         └── mapToolResultToToolResultBlockParam() → tool_result 消息
-```
+```text
 
 ### 配置优先级
 
-```
+```text
 优先级从低到高：
   Claude.ai 连接器 < 插件服务器 < 用户配置 < 项目配置(.mcp.json) < 本地配置 < 企业配置
                                                         ↑
                                               企业配置存在时，排他控制
-```
+```typescript
 
 ---
 
@@ -264,7 +264,7 @@ export const MCPTool = buildTool({
   renderToolUseProgressMessage,
   renderToolResultMessage,
 })
-```
+```java
 
 在 `client.ts` 中，每个 MCP 工具被创建为 MCPTool 的变体：
 
@@ -281,7 +281,7 @@ function createToolOverride(serverName, toolDef) {
     },
   }
 }
-```
+```typescript
 
 ### 工具名规范化
 
@@ -294,7 +294,7 @@ export function buildMcpToolName(serverName: string, toolName: string): string {
   const normalizedTool = normalizeNameForMCP(toolName)
   return `mcp__${normalizedServer}__${normalizedTool}`
 }
-```
+```java
 
 ### 资源工具
 
@@ -308,7 +308,7 @@ export function buildMcpToolName(serverName: string, toolName: string): string {
 // src/tools/ReadMcpResourceTool/ReadMcpResourceTool.ts
 // 输入：server 名称 + resource URI
 // 输出：资源内容（文本或持久化的二进制 blob 路径）
-```
+```java
 
 资源读取的一个关键细节：二进制内容（blob）不会被直接返回给模型，而是持久化到磁盘，返回文件路径：
 
@@ -322,7 +322,7 @@ if ('blob' in c && typeof c.blob === 'string') {
   )
   return { uri, mimeType, blobSavedTo: persisted.filepath }
 }
-```
+```java
 
 ### Elicitation 机制
 
@@ -339,7 +339,7 @@ export type ElicitationRequestEvent = {
   waitingState?: ElicitationWaitingState   // URL 模式的等待 UI
   onWaitingDismiss?: (action) => void       // 用户关闭等待 UI
 }
-```
+```text
 
 支持两种模式：
 - **form 模式**：服务器发送表单 schema，CLI 渲染为对话框
@@ -349,7 +349,7 @@ export type ElicitationRequestEvent = {
 
 `src/services/mcp/auth.ts` 实现了完整的 OAuth 2.0 流程：
 
-```
+```text
 1. discoverAuthorizationServerMetadata(url)
    └── 获取 OAuth 服务器元数据
 
@@ -368,7 +368,7 @@ export type ElicitationRequestEvent = {
 
 6. refreshTokens(refreshToken)
    └── 使用 refresh_token 刷新访问令牌
-```
+```java
 
 **Claude.ai 代理认证**（`createClaudeAiProxyFetch`）：
 - 使用 Claude.ai 的 OAuth token 进行认证
@@ -392,7 +392,7 @@ function isMcpServerAllowedByPolicy(name, config): boolean {
   // 3. 匹配模式：名称 / 命令数组 / URL 通配符
   // URL 支持 * 通配符，如 "https://*.example.com/*"
 }
-```
+```typescript
 
 **去重机制**（`dedupPluginMcpServers` / `dedupClaudeAiMcpServers`）：
 - 基于"签名"（signature）去重：stdio 命令数组 / URL
@@ -410,7 +410,7 @@ export const fetchClaudeAIMcpConfigsIfEligible = memoize(async () => {
   // 3. 转换为 McpClaudeAIProxyServerConfig（type: 'claudeai-proxy'）
   // 4. 通过代理 URL 路由请求
 })
-```
+```text
 
 ---
 
@@ -477,12 +477,12 @@ export const fetchClaudeAIMcpConfigsIfEligible = memoize(async () => {
 **为什么捕获 `sentToken`？**
 
 并发 401 场景：
-```
+```text
 时刻T1: 请求A 发送 token X，收到 401
 时刻T2: 请求B 发送 token Y，收到 401
 时刻T3: 刷新 token X → token Z
 时刻T4: 重试请求A，使用 token Z
-```
+```text
 
 如果在重试时重新读取 token，可能读到新的 token（如 token Z），而不是请求 A 原来发送的 token X，导致重试失败。
 

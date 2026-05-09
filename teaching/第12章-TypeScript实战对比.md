@@ -49,7 +49,7 @@ public class UserService {
 }
 
 UserService service = new UserService();  // 类型必须匹配
-```
+```java
 
 TypeScript 使用**结构化类型**（Structural Typing）——类型由结构决定：
 
@@ -61,7 +61,7 @@ interface UserService {
 
 // 任何有 findById 方法的对象都可以赋值
 const service: UserService = anyObjectWithFindById;
-```
+```java
 
 **★ 设计思想 ─────────────────────────────────────**
 TypeScript 的结构化类型使"协议"（Protocol）比 Java 的接口更灵活。Java 中 `implements` 是声明式耦合，而 TypeScript 的类型检查是 duck typing 的编译时验证。这让工具接口的定义更轻量——`src/Tool.ts` 中的 `Tool` 接口只需声明所需的 30+ 方法，任何实现该结构的类都会被接受。
@@ -85,7 +85,7 @@ const result = McpServerConfigSchema.safeParse(config)
 if (!result.success) {
   console.error(result.error.issues)
 }
-```
+```java
 
 Java 的等效方案是 Jakarta Bean Validation：
 
@@ -112,7 +112,7 @@ public class ConfigValidator {
         // 处理 violations
     }
 }
-```
+```typescript
 
 **关键差异**：
 
@@ -147,7 +147,7 @@ export const MCPTool = buildTool({
   renderToolUseProgressMessage,
   renderToolResultMessage,
 })
-```
+```java
 
 这类似于 Spring 的 `AbstractBeanFactory` 配合 `FactoryBean`：
 
@@ -169,7 +169,7 @@ public class ToolFactoryBean implements FactoryBean<Tool> {
     @Override
     public Class<?> getObjectType() { return Tool.class; }
 }
-```
+```java
 
 **关键差异**：
 
@@ -197,7 +197,7 @@ interface Tool {
   call(input: unknown, context: ToolUseContext, hasPermissions: HasPermissions, message: AssistantMessage): Promise<ToolResult>
   // ... 渲染方法
 }
-```
+```java
 
 ```java
 // Java: Command 接口
@@ -208,7 +208,7 @@ public interface Command<T, R> {
     R execute(T input) throws CommandExecutionException;
     // Java 没有内置的渲染接口，需要自己定义
 }
-```
+```typescript
 
 **★ 设计思想 ─────────────────────────────────────**
 Claude Code 的 `Tool` 接口比 Java 的 `Command` 模式更丰富——它同时包含了执行逻辑、渲染逻辑、验证逻辑和元数据。这种"胖接口"在 TypeScript 中因为有默认参数和可选方法而可行；在 Java 中通常需要多个接口（`Command` + `Renderable` + `Validatable`）。
@@ -240,7 +240,7 @@ export function createSignal<T>(initialValue: T): Signal<T> {
     },
   }
 }
-```
+```java
 
 Java SE 9+ 的 `Flow` API 提供了类似的功能：
 
@@ -261,7 +261,7 @@ SubmissionPublisher<T> publisher = new SubmissionPublisher<>();
      @Override
      public void onComplete() { /* 完成处理 */ }
  });
-```
+```java
 
 **Spring 的响应式方案**（Project Reactor）：
 
@@ -278,7 +278,7 @@ public class UserService {
         return userRepository.findAll();
     }
 }
-```
+```typescript
 
 **关键差异**：
 
@@ -316,7 +316,7 @@ export async function* runToolUse(
     yield { type: 'error', toolUseId, error }
   }
 }
-```
+```java
 
 Java 的 `CompletableFuture` 提供类似但不同的异步模型：
 
@@ -326,7 +326,7 @@ CompletableFuture<ToolResult> future = tool.call(input, context)
     .thenApply(result -> processResult(result))
     .thenAccept(finalResult -> displayResult(finalResult))
     .exceptionally(error -> handleError(error));
-```
+```java
 
 **关键差异**：
 
@@ -360,7 +360,7 @@ for await (const event of stream) {
     process.stdout.write(event.delta.text)
   }
 }
-```
+```java
 
 Java 中可以用 `HttpClient` + `BodyHandlers.ofLines()` 或 Spring WebClient：
 
@@ -371,7 +371,7 @@ webClient.get()
     .retrieve()
     .bodyToFlux(String.class)
     .subscribe(line -> System.out.print(line));
-```
+```java
 
 ---
 
@@ -389,7 +389,7 @@ export type PermissionMode =
   | 'bypassPermissions'  // 完全绕过权限检查
   | 'plan'               // 仅预览，不执行
   | 'auto'               // 根据上下文自动决策
-```
+```java
 
 Java 的 SecurityManager 提供了类似的权限控制：
 
@@ -399,7 +399,7 @@ System.setSecurityManager(new SecurityManager());
 
 // 检查权限
 AccessController.checkPermission(new FilePermission("/tmp/file", "read"));
-```
+```typescript
 
 **关键差异**：
 
@@ -430,7 +430,7 @@ export type { ToolUse, ToolResult }
 
 // 导入
 import { runToolUse } from './toolExecution.js'
-```
+```java
 
 Java 9+ 的模块系统：
 
@@ -440,7 +440,7 @@ module com.example.tool {
     requires org.anthropic.claude;
     exports com.example.tool.service;
 }
-```
+```typescript
 
 **实际项目中的依赖管理**：
 
@@ -465,7 +465,7 @@ class ToolExecution {
     // 访问全局状态
   }
 }
-```
+```java
 
 这类似于 Java 的 ServiceLocator 模式：
 
@@ -478,7 +478,7 @@ public class ServiceLocator {
         return serviceClass.cast(services.get(serviceClass));
     }
 }
-```
+```java
 
 Spring 的 `ApplicationContext` 本质上是一个高级 Service Locator。
 
@@ -495,7 +495,7 @@ TypeScript（Node.js/Bun）的内存管理是自动的，但 CLI 应用的内存
 const signal = createSignal(0)
 const unsubscribe = signal.subscribe(value => console.log(value))
 // 如果不调用 unsubscribe，闭包会持有 signal 引用
-```
+```java
 
 Java 中类似的问题：
 
@@ -503,7 +503,7 @@ Java 中类似的问题：
 // 风险：未取消的 CompletableFuture
 CompletableFuture<User> future = userService.findById(1L);
 // 如果不处理 future，它可能永远不会被垃圾回收
-```
+```typescript
 
 ### LRU 缓存 vs Caffeine
 
@@ -532,7 +532,7 @@ export function createFileStateCacheWithSizeLimit(maxSize: number) {
     },
   }
 }
-```
+```java
 
 Java 的 Caffeine 库提供了更丰富的缓存策略：
 
@@ -543,7 +543,7 @@ LoadingCache<String, User> users = Caffeine.newBuilder()
     .expireAfterWrite(10, TimeUnit.MINUTES)
     .refreshAfterWrite(1, TimeUnit.MINUTES)
     .build(User::findById);  // 自动加载
-```
+```text
 
 ---
 
@@ -553,7 +553,7 @@ LoadingCache<String, User> users = Caffeine.newBuilder()
 
 MCP（Model Context Protocol）和 JDBC 都是"标准协议 + 多实现"的架构，但设计目标有本质差异：
 
-```
+```text
 MCP 协议层：
   Claude Code (MCP Client)
     │
@@ -567,7 +567,7 @@ JDBC 架构：
     ├── ODBC Bridge           → 本地 C 库
     ├── Network Driver        → 远程数据库
     └── Embedded Driver       → 内嵌数据库
-```
+```text
 
 **关键类比**：
 

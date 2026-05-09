@@ -28,7 +28,7 @@ date: 2026-05-09
 
 Claude Code 的 Agent 系统采用分层架构：
 
-```
+```text
 主会话 (Main Session)
   │
   ├── 同步 Agent (sync)            ← 阻塞主线程，使用父级 abortController
@@ -43,13 +43,13 @@ Claude Code 的 Agent 系统采用分层架构：
         │     └── tmux/iTerm2 pane 展示
         └── RemoteAgentTask        ← 远程 CCR 环境
               └── 独立云环境执行
-```
+```text
 
 ### 团队（Team/Swarm）概念
 
 团队是多 Agent 协作的核心抽象：
 
-```
+```text
 Team (config.json)
   ├── lead (team-lead)        ← 主控 Agent，协调任务
   │     └── 在主会话中运行
@@ -62,11 +62,11 @@ Team (config.json)
   │
   └── member-b (test-runner)  ← 另一个团队成员
         └── ...
-```
+```text
 
 ### Agent 生成模式
 
-```
+```bash
 1. Fork 模式 (共享上下文)
    ├── 克隆主会话的 system prompt
    ├── 通过 buildForkedMessages() 克隆消息到子代理上下文
@@ -84,7 +84,7 @@ Team (config.json)
    ├── Agent 在隔离的文件系统中操作
    ├── 完成后合并或丢弃
    └── 用于：可能产生文件冲突的并行任务
-```
+```text
 
 ---
 
@@ -92,7 +92,7 @@ Team (config.json)
 
 ### Agent 工具架构
 
-```
+```text
 src/tools/AgentTool/
 ├── AgentTool.tsx           ← Agent 工具主入口：调度逻辑
 ├── runAgent.ts             ← Agent 执行循环：query() 包装
@@ -111,11 +111,11 @@ src/tools/AgentTool/
 ├── resumeAgent.ts          ← Agent 恢复（断点续传）
 ├── UI.tsx                  ← 渲染组件
 └── agentToolUtils.ts       ← 工具名解析和分类
-```
+```text
 
 ### 多 Agent 协作架构
 
-```
+```text
 src/utils/swarm/
 ├── teamHelpers.ts          ← 团队文件管理：CRUD、成员操作
 ├── constants.ts            ← 常量：TEAM_LEAD_NAME, 环境变量
@@ -137,11 +137,11 @@ src/utils/swarm/
 src/tools/TeamCreateTool/   ← 团队创建工具
 src/tools/TeamDeleteTool/   ← 团队删除工具
 src/tools/SendMessageTool/  ← 消息传递工具
-```
+```text
 
 ### 任务管理架构
 
-```
+```text
 src/tasks/
 ├── types.ts                ← Task 接口和 TaskStateBase
 ├── pillLabel.ts            ← 任务标签显示
@@ -155,7 +155,7 @@ src/tasks/
 │   └── RemoteAgentTask.tsx
 ├── LocalMainSessionTask.ts ← 主会话任务
 └── LocalShellTask/         ← Shell 后台任务
-```
+```text
 
 ---
 
@@ -163,7 +163,7 @@ src/tasks/
 
 ### Agent 工具调用流程
 
-```
+```bash
 Claude 模型返回 tool_use: Agent({ prompt, description, subagent_type, ... })
   │
   ▼
@@ -205,11 +205,11 @@ AgentTool.call(input, context)
         │     ├── 记录 transcript (recordSidechainTranscript)
         │     └── yield message
         └── finally: 清理 MCP、hooks、transcript、bash 任务
-```
+```text
 
 ### 团队创建流程
 
-```
+```text
 Claude 模型: TeamCreate({ team_name, description, agent_type })
   │
   ▼
@@ -241,11 +241,11 @@ TeamCreateTool.call()
   │
   └── 6. setLeaderTeamName(teamName)
         └── 标记当前会话为团队 leader
-```
+```text
 
 ### 消息传递流程
 
-```
+```text
 Agent A: SendMessage({ to: "researcher", message: "..." })
   │
   ▼
@@ -273,7 +273,7 @@ SendMessageTool.call()
   │     └── 广播: 遍历所有成员逐一投递
   │
   └── 5. 返回发送确认
-```
+```java
 
 ---
 
@@ -303,7 +303,7 @@ const multiAgentInputSchema = z.object({
 // 隔离参数
 isolation: z.enum(['worktree', 'remote']).optional()
 cwd: z.string().optional()
-```
+```typescript
 
 ### runAgent 执行循环
 
@@ -366,7 +366,7 @@ export async function* runAgent({
     killShellTasksForAgent(agentId, ...)
   }
 }
-```
+```java
 
 ### 团队文件管理
 
@@ -399,7 +399,7 @@ type TeamFile = {
     mode?: PermissionMode
   }>
 }
-```
+```java
 
 关键操作：
 - `readTeamFile(teamName)` — 同步读取（React 渲染路径）
@@ -422,7 +422,7 @@ type TeamFile = {
 //   - 完成后通过 enqueueAgentNotification 通知主会话
 //   - 支持 progress tracking（进度追踪）
 //   - 支持摘要生成（startAgentSummarization）
-```
+```java
 
 **InProcessTeammateTask** — 进程内队友：
 
@@ -434,7 +434,7 @@ type TeamFile = {
 //   - 支持 plan mode 审批流程
 //   - 可空闲（等待工作）或活跃（处理中）
 //   - 通过 killInProcessTeammate() 终止
-```
+```java
 
 **RemoteAgentTask** — 远程 Agent：
 
@@ -445,7 +445,7 @@ type TeamFile = {
 //   - 始终在后台运行
 //   - 需要远程资格检查 (checkRemoteAgentEligibility)
 //   - 支持会话 URL 获取 (getRemoteTaskSessionUrl)
-```
+```typescript
 
 ### 队友系统 Prompt
 
@@ -462,7 +462,7 @@ IMPORTANT: You are running as an agent in a team. To communicate with anyone on 
 
 Just writing a response in text is not visible to others on your team - you MUST use the SendMessage tool.
 `
-```
+```typescript
 
 ### Fork 子代理机制
 
@@ -482,7 +482,7 @@ export function buildForkedMessages(
 
 // Fork Agent 类型标识（用于防止无限递归 fork）
 export const FORK_AGENT = 'fork'
-```
+```typescript
 
 ### 团队清理机制
 
@@ -504,7 +504,7 @@ export async function cleanupTeamDirectories(teamName: string): Promise<void> {
   // 2. 清理 ~/.claude/teams/{team-name}/
   // 3. 清理 ~/.claude/tasks/{team-name}/
 }
-```
+```text
 
 ---
 
@@ -527,11 +527,11 @@ export async function cleanupTeamDirectories(teamName: string): Promise<void> {
 **答案**：
 
 **共享 prompt cache 的原理**：
-```
+```text
 主会话消息 → [user: hi, assistant: hi]
                  ↓ buildForkedMessages()
 子代理消息 → [user: hi, assistant: hi, user: 分析这个文件]
-```
+```text
 
 **使用场景**：
 - `isForkSubagentEnabled`：Explorer、Plan 等一次性任务

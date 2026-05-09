@@ -32,12 +32,12 @@ date: 2026-05-09
 
 ### Skill 的四种来源
 
-```
+```text
 1. bundled  - 编译进 CLI 二进制，所有用户可用
 2. skills   - 文件系统中的 .claude/skills/skill-name/SKILL.md
 3. mcp      - MCP 服务器动态提供的技能
 4. plugin   - 通过 Plugin 安装提供的技能
-```
+```java
 
 ### Command 类型定义
 
@@ -60,7 +60,7 @@ type Command = {
   paths?: string[]         // 条件激活的路径模式
   getPromptForCommand(args, ctx) => Promise<ContentBlockParam[]>
 }
-```
+```text
 
 ---
 
@@ -68,7 +68,7 @@ type Command = {
 
 ### 关键目录结构
 
-```
+```text
 src/skills/
   bundledSkills.ts           # BundledSkillDefinition 类型和注册 API
   loadSkillsDir.ts           # 文件系统 skill 加载（核心，~1080 行）
@@ -115,7 +115,7 @@ src/utils/plugins/
 
 src/components/skills/
   SkillsMenu.tsx                # Skill 列表 UI
-```
+```text
 
 ---
 
@@ -123,7 +123,7 @@ src/components/skills/
 
 ### Skill 加载流程
 
-```
+```text
 启动
   │
   ├─ initBundledSkills() ──> registerBundledSkill(definition)
@@ -147,11 +147,11 @@ src/components/skills/
   ├─ MCP skills ──> MCP 连接后通过 mcpSkillBuilders 动态注册
   │
   └─ 合并为完整 Command[] 列表 ──> 注入 system prompt
-```
+```text
 
 ### Skill 调用流程
 
-```
+```text
 用户输入 → 模型选择 SkillTool
   │
   ├─ validateInput() ──> 查找 Command，检查 disableModelInvocation
@@ -170,11 +170,11 @@ src/components/skills/
   │               └─ 返回 ContentBlockParam[]
   │
   └─ 返回 ToolResult + contextModifier (allowedTools, model, effort)
-```
+```text
 
 ### Plugin 生命周期
 
-```
+```text
 安装 (installPluginOp)
   │
   ├── 在 Marketplace 中查找 Plugin
@@ -204,11 +204,11 @@ src/components/skills/
   ├── 标记旧版本为孤儿
   ├── 删除 Plugin 选项和密钥
   └── 可选删除数据目录
-```
+```text
 
 ### Plugin Hook 注入流程
 
-```
+```text
 loadPluginHooks() [memoized]
   │
   ├── loadAllPluginsCacheOnly() ──> 获取 enabled plugins
@@ -224,7 +224,7 @@ loadPluginHooks() [memoized]
   └── setupPluginHookHotReload()
         └── 订阅 settingsChangeDetector
               └── policySettings 变化时 → 清缓存 → 重新 loadPluginHooks()
-```
+```java
 
 ---
 
@@ -254,7 +254,7 @@ export type BundledSkillDefinition = {
   getPromptForCommand: (args: string, context: ToolUseContext)
     => Promise<ContentBlockParam[]>
 }
-```
+```typescript
 
 `registerBundledSkill()` 将定义转换为 `Command` 对象并推入内存注册表。如果 skill 带有 `files`，则惰性提取到临时目录（带安全写入保护 `O_NOFOLLOW | O_EXCL`）。
 
@@ -305,7 +305,7 @@ Skill 列表只占用上下文窗口的 1%（约 8000 字符），策略如下�
 export const SKILL_BUDGET_CONTEXT_PERCENT = 0.01
 export const CHARS_PER_TOKEN = 4
 export const DEFAULT_CHAR_BUDGET = 8_000
-```
+```java
 
 当描述超出预算时：
 1. Bundled skill 永远不被截断（完整描述保留）
@@ -338,7 +338,7 @@ async function installPluginOp(plugin, scope) {
   // 3. 缓存 Plugin + 记录版本
   await installResolvedPlugin({ pluginId, entry, scope, ... })
 }
-```
+```text
 
 Scope 层级（从具体到通用）：`local` > `project` > `user` > `managed`
 
@@ -346,14 +346,14 @@ Scope 层级（从具体到通用）：`local` > `project` > `user` > `managed`
 
 Plugin 通过 `hooksConfig` 注入行为，支持全部 HookEvent：
 
-```
+```text
 PreToolUse, PostToolUse, PostToolUseFailure, PermissionDenied,
 Notification, UserPromptSubmit, SessionStart, SessionEnd, Stop,
 StopFailure, SubagentStart, SubagentStop, PreCompact, PostCompact,
 PermissionRequest, Setup, TeammateIdle, TaskCreated, TaskCompleted,
 Elicitation, ElicitationResult, ConfigChange, WorktreeCreate,
 WorktreeRemove, InstructionsLoaded, CwdChanged, FileChanged
-```
+```text
 
 Hook 加载是原子的：先 `clearRegisteredPluginHooks()`，再 `registerHookCallbacks()`，确保旧 hook 在新 hook 注册前始终有效。
 
@@ -379,7 +379,7 @@ argument-hint: "[目录路径]"
 # 项目结构分析
 
 使用 Bash 工具运行 `find $ARGUMENTS -type f | head -50`，然后分析文件结构模式。
-```
+```text
 
 验证：
 1. 运行 `claude` 并输入 `/my-skill src/`
