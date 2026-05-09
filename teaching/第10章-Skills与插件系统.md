@@ -2,25 +2,37 @@
 title: "Skills 与插件系统"
 description: "理解 Claude Code 的 Skill（技能）和 Plugin（插件）系统，包括定义格式、加载机制、执行模式、生命周期和 hook 注入。"
 tags: [skills, plugins, hooks, marketplace]
-date: 2026-05-09
+date: 2026-05-10
 ---
 
-# 10 - Skills 与插件系统
+# 第10章：Skills 与插件系统
 
-> **本章目标**：理解 Claude Code 的 Skill（技能）和 Plugin（插件）系统。学完本章后，你将清楚：
->
-> 1. Skill 的定义格式（文件系统、内建、MCP、Plugin 四种来源）
-> 2. Skill 的加载、去重、动态发现和条件激活机制
-> 3. SkillTool 如何调用 Skill（inline vs fork 两种执行模式）
-> 4. Plugin 的生命周期（安装、启用/禁用、更新、卸载）
-> 5. Plugin 如何通过 hook 系统注入行为
-> 6. Marketplace（插件市场）的发现与协调机制
+> **本章目标**：理解 Claude Code 的 Skill（技能）和 Plugin（插件）系统。涵盖四种 Skill 来源、加载去重机制、inline/fork 执行模式、Plugin 生命周期和 hook 注入机制。
 
 ---
 
-## 核心概念
+## 1. 学习目标
 
-### Skill vs Plugin 的区别
+- [ ] 理解 Skill 的四种来源（bundled、skills 文件系统、MCP、Plugin）
+- [ ] 掌握 Skill 加载、去重和条件激活机制
+- [ ] 理解 inline 和 fork 两种 Skill 执行模式的区别
+- [ ] 掌握 Plugin 的生命周期管理（安装、启用/禁用、更新、卸载）
+- [ ] 理解 Plugin hook 注入机制和热重载原理
+
+---
+
+## 2. 背景问题
+
+### 2.1 为什么需要 Skill 系统？
+
+Claude Code 的 Skill 系统解决以下问题：
+
+1. **可复用的工作流**：用户可以将常用操作封装为 Skill
+2. **动态发现**：文件系统中的 Skill 无需重启即可被发现
+3. **条件激活**：基于文件路径的 Skill 可以在特定场景下自动激活
+4. **权限控制**：Skill 可以声明允许使用的工具列表
+
+### 2.2 Skill vs Plugin 的区别
 
 | 维度 | Skill（技能） | Plugin（插件） |
 |------|--------------|---------------|
@@ -30,385 +42,471 @@ date: 2026-05-09
 | 可见性 | 在 system-reminder 中列出 | 在 /plugin UI 中管理 |
 | 用户交互 | `/skill-name` 斜杠命令 | `/plugin` 管理界面 |
 
-### Skill 的四种来源
+---
 
-```text
-1. bundled  - 编译进 CLI 二进制，所有用户可用
-2. skills   - 文件系统中的 .claude/skills/skill-name/SKILL.md
-3. mcp      - MCP 服务器动态提供的技能
-4. plugin   - 通过 Plugin 安装提供的技能
-```java
+## 3. 源码入口
 
-### Command 类型定义
+| 项目 | 内容 |
+|------|------|
+| 文件路径 | `src/skills/loadSkillsDir.ts` |
+| 核心函数 | `getSkillDirCommands()`, `loadSkillsFromSkillsDir()`, `createSkillCommand()` |
+| 调用入口 | `getCommandDirCommands()` → `getSkillDirCommands()` |
+| 行号 | `getSkillDirCommands`: #380-480, `loadSkillsFromSkillsDir`: #280-340 |
 
-Skill 在代码中统一表示为 `Command` 对象，关键字段：
+**Bundled Skill 源码**：
+
+| 项目 | 内容 |
+|------|------|
+| 文件路径 | `src/skills/bundledSkills.ts` |
+| 核心函数 | `registerBundledSkill()`, `getBundledSkills()` |
+| 调用入口 | `initBundledSkills()` 在启动时注册 |
+| 行号 | `registerBundledSkill`: #45-80 |
+
+**Plugin 生命周期源码**：
+
+| 项目 | 内容 |
+|------|------|
+| 文件路径 | `src/services/plugins/pluginOperations.ts` |
+| 核心函数 | `installPluginOp()`, `setPluginEnabledOp()`, `updatePluginOp()`, `uninstallPluginOp()` |
+| 调用入口 | CLI 命令或 UI 操作触发 |
+| 行号 | `installPluginOp`: #140-200, `setPluginEnabledOp`: #240-320 |
+
+---
+
+## 4. 架构定位
+
+### 4.1 模块职责
+
+**Skill 加载** (`src/skills/loadSkillsDir.ts`)：
+- 负责发现和加载所有来源的 Skill
+- 处理去重（realpath 解析符号链接）
+- 管理条件 Skill 的动态激活
+
+**Bundled Skill 注册** (`src/skills/bundledSkills.ts`)：
+- 编译时注册的内建 Skill
+- 支持惰性提取的参考文件（`files` 字段）
+
+**Plugin 生命周期** (`src/services/plugins/pluginOperations.ts`)：
+- 安装、启用/禁用、更新、卸载操作
+- settings-first 设计（先写设置，再物化）
+
+### 4.2 Skill 来源架构
+
+```mermaid
+graph TB
+    subgraph "Skill 来源"
+        A["bundled<br/>编译进二进制"]
+        B["skills/ 目录<br/>文件系统"]
+        C["MCP 服务器<br/>动态提供"]
+        D["Plugin 安装<br/>提供 Skill"]
+    end
+
+    subgraph "加载机制"
+        E["initBundledSkills()"]
+        F["getSkillDirCommands()"]
+        G["mcpSkillBuilders"]
+        H["loadAllPlugins()"]
+    end
+
+    A --> E
+    B --> F
+    C --> G
+    D --> H
+
+    E --> I["Command[]"]
+    F --> I
+    G --> I
+    H --> I
+```
+
+### 4.3 Plugin 生命周期
+
+```mermaid
+graph LR
+    A[安装] --> B[settings 声明]
+    B --> C[物化 Plugin]
+    C --> D[installed_plugins_v2.json]
+
+    E[启用/禁用] --> F[更新 settings]
+    F --> G[清除缓存]
+
+    H[更新] --> I[下载/拷贝到缓存]
+    I --> J[更新版本记录]
+
+    K[卸载] --> L[删除 settings]
+    L --> M[标记孤儿版本]
+```
+
+---
+
+## 5. 核心源码分析
+
+### 5.1 Skill 加载核心逻辑
+
+**文件**：`src/skills/loadSkillsDir.ts:380-480`
 
 ```typescript
-// src/types/command.ts (概念模型)
-type Command = {
-  type: 'prompt'           // 所有 skill 都是 prompt 类型
-  name: string             // 技能名称，如 "commit"
-  description: string      // 简短描述
-  whenToUse?: string       // 模型用于匹配的详细描述
-  source: string           // 'bundled' | 'plugin' | 'userSettings' | ...
-  loadedFrom: LoadedFrom   // 'bundled' | 'skills' | 'mcp' | 'plugin' | ...
-  allowedTools: string[]   // 技能允许使用的工具列表
-  context?: 'fork'         // 如果设置，则在子 agent 中执行
-  model?: string           // 模型覆盖
-  effort?: EffortValue     // 努力级别覆盖
-  hooks?: HooksSettings    // 技能附带的 hook
-  paths?: string[]         // 条件激活的路径模式
-  getPromptForCommand(args, ctx) => Promise<ContentBlockParam[]>
+export const getSkillDirCommands = memoize(
+  async (cwd: string): Promise<Command[]> => {
+    // 并行加载多个来源
+    const [
+      managedSkills,
+      userSkills,
+      projectSkillsNested,
+      legacyCommands,
+    ] = await Promise.all([
+      loadSkillsFromSkillsDir(managedSkillsDir, 'policySettings'),
+      isSettingSourceEnabled('userSettings') ? loadSkillsFromSkillsDir(userSkillsDir, 'userSettings') : [],
+      projectSettingsEnabled ? Promise.all(projectSkillsDirs.map(...)) : [],
+      loadSkillsFromCommandsDir(cwd),  // legacy 格式
+    ])
+
+    // 去重：使用 realpath 解析符号链接
+    const fileIds = await Promise.all(
+      allSkillsWithPaths.map(({ filePath }) =>
+        skill.type === 'prompt' ? getFileIdentity(filePath) : null
+      )
+    )
+
+    // 按来源优先级保留第一个
+    for (const entry of allSkillsWithPaths) {
+      const fileId = fileIds[i]
+      if (existingSource !== undefined) continue  // 已存在则跳过
+      seenFileIds.set(fileId, skill.source)
+      deduplicatedSkills.push(skill)
+    }
+
+    // 分离条件 Skill（有 paths frontmatter）
+    for (const skill of deduplicatedSkills) {
+      if (skill.paths && skill.paths.length > 0) {
+        conditionalSkills.set(skill.name, skill)
+      } else {
+        unconditionalSkills.push(skill)
+      }
+    }
+  }
+)
+```
+
+**去重策略**：`realpath` 解析符号链接，确保同一文件不会被重复加载。
+
+### 5.2 Bundled Skill 注册
+
+**文件**：`src/skills/bundledSkills.ts:45-80`
+
+```typescript
+export function registerBundledSkill(definition: BundledSkillDefinition): void {
+  const command: Command = {
+    type: 'prompt',
+    name: definition.name,
+    description: definition.description,
+    allowedTools: definition.allowedTools ?? [],
+    disableModelInvocation: definition.disableModelInvocation ?? false,
+    userInvocable: definition.userInvocable ?? true,
+    source: 'bundled',
+    loadedFrom: 'bundled',
+    hooks: definition.hooks,
+    skillRoot,
+    context: definition.context,
+    getPromptForCommand: definition.getPromptForCommand,
+  }
+  bundledSkills.push(command)
 }
-```text
+```
 
----
-
-## 源码导览
-
-### 关键目录结构
-
-```text
-src/skills/
-  bundledSkills.ts           # BundledSkillDefinition 类型和注册 API
-  loadSkillsDir.ts           # 文件系统 skill 加载（核心，~1080 行）
-  mcpSkillBuilders.ts        # MCP skill 构建器的注册表
-  bundled/
-    index.ts                 # initBundledSkills() - 启动时注册所有内建 skill
-    remember.ts              # /remember - 记忆审查
-    simplify.ts              # /simplify - 代码审查
-    updateConfig.ts          # /update-config - 配置修改
-    keybindings.ts           # /keybindings-help
-    verify.ts                # /verify
-    batch.ts                 # /batch
-    debug.ts                 # /debug
-    stuck.ts                 # /stuck
-    skillify.ts              # /skillify
-    loop.ts                  # /loop (feature flag)
-    claudeApi.ts             # /claude-api (feature flag)
-    scheduleRemoteAgents.ts  # /schedule-remote-agents (feature flag)
-    claudeInChrome.ts        # /claude-in-chrome (条件启用)
-
-src/tools/SkillTool/
-  SkillTool.ts               # SkillTool 工具定义（~1100 行）
-  prompt.ts                  # Skill 列表的 prompt 生成和预算管理
-  constants.ts               # SKILL_TOOL_NAME = 'Skill'
-
-src/plugins/
-  builtinPlugins.ts          # 内建 Plugin 注册表
-  bundled/index.ts           # initBuiltinPlugins()
-
-src/services/plugins/
-  PluginInstallationManager.ts  # 后台安装协调
-  pluginOperations.ts           # install/uninstall/enable/disable/update
-  pluginCliCommands.ts          # CLI 命令入口
-
-src/utils/plugins/
-  loadPluginHooks.ts            # Plugin hook 加载和热重载
-  validatePlugin.ts             # Plugin 验证
-  installedPluginsManager.ts    # 磁盘上的安装记录
-  officialMarketplace.ts        # 官方 Marketplace
-  dependencyResolver.ts         # 依赖解析
-  pluginPolicy.ts               # 策略控制
-  pluginVersioning.ts           # 版本管理
-  refresh.ts                    # 刷新活跃 Plugin
-
-src/components/skills/
-  SkillsMenu.tsx                # Skill 列表 UI
-```text
-
----
-
-## 数据流图
-
-### Skill 加载流程
-
-```text
-启动
-  │
-  ├─ initBundledSkills() ──> registerBundledSkill(definition)
-  │                              │
-  │                              └─> bundledSkills[] (内存注册表)
-  │
-  ├─ getSkillDirCommands(cwd)  [memoized]
-  │     │
-  │     ├── loadSkillsFromSkillsDir(managedSkillsDir) ──> managed/.claude/skills/
-  │     ├── loadSkillsFromSkillsDir(userSkillsDir)    ──> ~/.claude/skills/
-  │     ├── loadSkillsFromSkillsDir(projectDirs)      ──> .claude/skills/
-  │     ├── loadSkillsFromSkillsDir(additionalDirs)   ──> --add-dir/.claude/skills/
-  │     └── loadSkillsFromCommandsDir(cwd)            ──> .claude/commands/ (legacy)
-  │
-  │     └─> 去重 (realpath 去符号链接)
-  │     └─> 分离条件 skill (有 paths frontmatter)
-  │     └─> 返回 unconditionalSkills[]
-  │
-  ├─ Plugin skills ──> getBuiltinPluginSkillCommands() + loadAllPlugins()
-  │
-  ├─ MCP skills ──> MCP 连接后通过 mcpSkillBuilders 动态注册
-  │
-  └─ 合并为完整 Command[] 列表 ──> 注入 system prompt
-```text
-
-### Skill 调用流程
-
-```text
-用户输入 → 模型选择 SkillTool
-  │
-  ├─ validateInput() ──> 查找 Command，检查 disableModelInvocation
-  │
-  ├─ checkPermissions() ──> 检查 deny/allow 规则，安全属性自动放行
-  │
-  ├─ call()
-  │     │
-  │     ├── context === 'fork'?
-  │     │     └─ YES: executeForkedSkill() ──> runAgent() 子 agent
-  │     │
-  │     └── NO (inline): processPromptSlashCommand()
-  │           └─ getPromptForCommand(args, ctx)
-  │               └─ 替换参数: $ARGUMENTS, ${CLAUDE_SKILL_DIR}, ${CLAUDE_SESSION_ID}
-  │               └─ 执行 shell 命令: !`...` (仅限非 MCP skill)
-  │               └─ 返回 ContentBlockParam[]
-  │
-  └─ 返回 ToolResult + contextModifier (allowedTools, model, effort)
-```text
-
-### Plugin 生命周期
-
-```text
-安装 (installPluginOp)
-  │
-  ├── 在 Marketplace 中查找 Plugin
-  ├── 写入 settings (声明意图)
-  ├── 缓存 Plugin + 记录版本
-  └── 记录到 installed_plugins_v2.json
-
-启用/禁用 (setPluginEnabledOp)
-  │
-  ├── 解析 pluginId 和 scope
-  ├── 检查策略 (blockedByPolicy)
-  ├── 更新 settings.enabledPlugins
-  └── 清除缓存
-
-更新 (updatePluginOp)
-  │
-  ├── 从 Marketplace 获取最新版本
-  ├── 下载到临时目录 / 使用本地路径
-  ├── 计算版本哈希
-  ├── 复制到版本化缓存目录
-  └── 更新 installed_plugins_v2.json
-
-卸载 (uninstallPluginOp)
-  │
-  ├── 从 settings 移除
-  ├── 从 installed_plugins_v2.json 移除
-  ├── 标记旧版本为孤儿
-  ├── 删除 Plugin 选项和密钥
-  └── 可选删除数据目录
-```text
-
-### Plugin Hook 注入流程
-
-```text
-loadPluginHooks() [memoized]
-  │
-  ├── loadAllPluginsCacheOnly() ──> 获取 enabled plugins
-  │
-  ├── for each plugin:
-  │     └── convertPluginHooksToMatchers(plugin)
-  │           └─ 遍历 hooksConfig 的每个 HookEvent
-  │           └─ 包装为 PluginHookMatcher { matcher, hooks, pluginRoot, pluginName }
-  │
-  ├── clearRegisteredPluginHooks()
-  ├── registerHookCallbacks(allPluginHooks)
-  │
-  └── setupPluginHookHotReload()
-        └── 订阅 settingsChangeDetector
-              └── policySettings 变化时 → 清缓存 → 重新 loadPluginHooks()
-```java
-
----
-
-## 关键代码
-
-### Bundled Skill 注册
-
-`BundledSkillDefinition` 定义了内建 skill 的完整结构：
+**支持惰性提取文件**：
 
 ```typescript
-// src/skills/bundledSkills.ts:15-41
-export type BundledSkillDefinition = {
-  name: string
-  description: string
-  aliases?: string[]
-  whenToUse?: string
-  argumentHint?: string
-  allowedTools?: string[]
-  model?: string
-  disableModelInvocation?: boolean
-  userInvocable?: boolean
-  isEnabled?: () => boolean
-  hooks?: HooksSettings
-  context?: 'inline' | 'fork'
-  agent?: string
-  files?: Record<string, string>  // 惰性提取的参考文件
-  getPromptForCommand: (args: string, context: ToolUseContext)
-    => Promise<ContentBlockParam[]>
+if (files && Object.keys(files).length > 0) {
+  skillRoot = getBundledSkillExtractDir(definition.name)
+  getPromptForCommand = async (args, ctx) => {
+    extractionPromise ??= extractBundledSkillFiles(definition.name, files)
+    const extractedDir = await extractionPromise
+    const blocks = await inner(args, ctx)
+    return prependBaseDir(blocks, extractedDir)
+  }
 }
-```typescript
+```
 
-`registerBundledSkill()` 将定义转换为 `Command` 对象并推入内存注册表。如果 skill 带有 `files`，则惰性提取到临时目录（带安全写入保护 `O_NOFOLLOW | O_EXCL`）。
+### 5.3 Plugin 安装流程
 
-**内建 Skill 一览**（`src/skills/bundled/index.ts`）：
-
-| Skill | 功能 | 用户可用 |
-|-------|------|---------|
-| `update-config` | 通过对话更新 `settings.json`（权限、环境变量、hook 配置） | ✅ |
-| `verify` | 在终端运行 pr-review 检查，验证代码变更 | ✅ |
-| `debug` | 读取 session debug log（Ant 用户）；开启 debug 日志并诊断（非 Ant） | ✅ |
-| `lorem-ipsum` | 生成填充文本用于长上下文测试 | ❌ ANT-only |
-| `simplify` | 审查变更代码的可复用性、质量和效率，并修复问题 | ✅ |
-| `remember` | 审查 auto-memory 条目，建议晋升到 CLAUDE.md 或清理过时条目 | ✅ |
-| `skillify` | 将 prompt 转化为可复用的 skill 文件 | ✅ |
-| `stuck` | 调查本机 frozen/stuck/slow 会话并发布诊断报告 | ❌ ANT-only |
-| `batch` | 研究并规划大规模变更，并行在 5–30 个独立 worktree agent 中执行 | ✅ |
-| `keybindings-help` | 自定义键盘快捷键、绑定序列、修改 `~/.claude/keybindings.json` | ✅ |
-| `dream` | KAIROS 模式下的梦生成 | KAIROS |
-| `hunter` | 代码审查猎手 | REVIEW_ARTIFACT |
-| `loop` | 定时循环执行任务（`/loop` 命令） | AGENT_TRIGGERS |
-| `schedule-remote-agents` | 调度远程 Agent | AGENT_TRIGGERS_REMOTE |
-| `claude-api` | Claude API 应用构建 | BUILDING_CLAUDE_APPS |
-| `claude-in-chrome` | Chrome 中的 Claude 集成 | Chrome 扩展 |
-| `run-skill-generator` | 运行 skill 生成器 | RUN_SKILL_GENERATOR |
-
-### 文件系统 Skill 加载
-
-这是 skill 加载的核心逻辑，约 1080 行。关键函数：
-
-- **`getSkillDirCommands(cwd)`** — 加载所有来源的 skill，去重，分离条件 skill
-- **`loadSkillsFromSkillsDir(basePath, source)`** — 读取 `skill-name/SKILL.md` 格式
-- **`loadSkillsFromCommandsDir(cwd)`** — 兼容旧版 `.claude/commands/` 格式
-- **`createSkillCommand({...})`** — 将 frontmatter 解析结果转为 `Command` 对象
-- **`parseSkillFrontmatterFields(frontmatter, ...)`** — 解析所有 frontmatter 字段
-
-去重策略：使用 `realpath` 解析符号链接得到文件身份（inode 在某些文件系统不可靠），按来源优先级保留第一个。
-
-动态发现机制：
-- **`discoverSkillDirsForPaths(filePaths, cwd)`** — 从文件路径向上遍历到 cwd，查找 `.claude/skills/` 目录
-- **`activateConditionalSkillsForPaths(filePaths, cwd)`** — 激活有 `paths` frontmatter 的条件 skill
-
-### Skill 列表预算管理
-
-Skill 列表只占用上下文窗口的 1%（约 8000 字符），策略如下：
+**文件**：`src/services/plugins/pluginOperations.ts:140-200`
 
 ```typescript
-// src/tools/SkillTool/prompt.ts:21-23
-export const SKILL_BUDGET_CONTEXT_PERCENT = 0.01
-export const CHARS_PER_TOKEN = 4
-export const DEFAULT_CHAR_BUDGET = 8_000
-```java
-
-当描述超出预算时：
-1. Bundled skill 永远不被截断（完整描述保留）
-2. 非 bundled skill 的描述被截断以适应剩余空间
-3. 极端情况下，非 bundled skill 只显示名称
-
-### SkillTool 调用
-
-SkillTool 是模型调用 skill 的唯一入口。关键执行路径：
-
-**Inline 执行**（默认）：skill 的 prompt 内容作为 user message 注入当前对话流，通过 `processPromptSlashCommand` 处理参数替换和 shell 命令执行。
-
-**Fork 执行**（`context: 'fork'`）：skill 在隔离的子 agent 中运行，拥有独立的 token 预算。调用 `runAgent()` 获取 `AsyncGenerator<Message>`，收集结果文本后返回。
-
-**安全检查**：`skillHasOnlySafeProperties()` 使用白名单检查 skill 属性，只有完全安全的 skill 才自动放行，其他需要用户确认。
-
-### Plugin 安装
-
-安装流程是"settings-first"：
-
-```typescript
-// 简化的安装流程
-async function installPluginOp(plugin, scope) {
-  // 1. 在已物化的 Marketplace 中查找
-  const found = await searchMarketplaces(pluginName)
+export async function installPluginOp(
+  plugin: string,
+  scope: InstallableScope = 'user',
+): Promise<PluginOperationResult> {
+  // 1. 在 Marketplace 中查找 Plugin
+  let foundPlugin: PluginMarketplaceEntry | undefined
+  for (const [mktName, mktConfig] of Object.entries(marketplaces)) {
+    const marketplace = await getMarketplace(mktName)
+    const pluginEntry = marketplace.plugins.find(p => p.name === pluginName)
+    if (pluginEntry) {
+      foundPlugin = pluginEntry
+      foundMarketplace = mktName
+      break
+    }
+  }
 
   // 2. 写入 settings（声明意图）
-  updateSettingsForSource(source, { enabledPlugins: { [pluginId]: true } })
+  updateSettingsForSource(settingSource, {
+    enabledPlugins: { [pluginId]: true }
+  })
 
-  // 3. 缓存 Plugin + 记录版本
-  await installResolvedPlugin({ pluginId, entry, scope, ... })
+  // 3. 物化 Plugin
+  await installResolvedPlugin({ pluginId, entry, scope, marketplaceInstallLocation })
 }
-```text
+```
 
-Scope 层级（从具体到通用）：`local` > `project` > `user` > `managed`
+**settings-first 设计**：先写 settings，再物化。确保即使物化失败，settings 也会触发下次启动时的 reconciliation。
 
-### Plugin Hook 系统
+### 5.4 hook 注入机制
 
-Plugin 通过 `hooksConfig` 注入行为，支持全部 HookEvent：
+**文件**：`src/utils/plugins/loadPluginHooks.ts`
 
-```text
-PreToolUse, PostToolUse, PostToolUseFailure, PermissionDenied,
-Notification, UserPromptSubmit, SessionStart, SessionEnd, Stop,
-StopFailure, SubagentStart, SubagentStop, PreCompact, PostCompact,
-PermissionRequest, Setup, TeammateIdle, TaskCreated, TaskCompleted,
-Elicitation, ElicitationResult, ConfigChange, WorktreeCreate,
-WorktreeRemove, InstructionsLoaded, CwdChanged, FileChanged
-```text
+```typescript
+export function loadPluginHooks(): void {
+  const allPlugins = loadAllPluginsCacheOnly()
 
-Hook 加载是原子的：先 `clearRegisteredPluginHooks()`，再 `registerHookCallbacks()`，确保旧 hook 在新 hook 注册前始终有效。
+  for (const plugin of allPlugins.enabled) {
+    const hookMatchers = convertPluginHooksToMatchers(plugin)
+    for (const matcher of hookMatchers) {
+      registerHookCallbacks(matcher.hooks.map(h => ({
+        ...h,
+        pluginName: plugin.name,
+      })))
+    }
+  }
+}
 
-热重载：通过 `settingsChangeDetector` 监听 `policySettings` 变化，对比快照后决定是否重新加载。
+// 热重载：监听 settings 变化
+settingsChangeDetector.subscribe(() => {
+  clearRegisteredPluginHooks()
+  loadPluginHooks()
+})
+```
+
+---
+
+## 6. 可视化结构
+
+### 6.1 Skill 加载架构图
+
+```mermaid
+graph TB
+    subgraph "启动时加载"
+        A["initBundledSkills()"] --> B["bundledSkills[]"]
+        C["getSkillDirCommands()"] --> D["unconditionalSkills[]"]
+        C --> E["conditionalSkills[]"]
+    end
+
+    subgraph "运行时动态加载"
+        F["discoverSkillDirsForPaths()"] --> G["addSkillDirectories()"]
+        H["activateConditionalSkillsForPaths()"] --> G
+    end
+
+    G --> D
+    E --> H
+```
+
+### 6.2 Skill 调用流程时序图
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant REPL
+    participant SkillTool
+    participant Command
+    participant ForkAgent
+
+    User->>REPL: /my-skill arg
+    REPL->>SkillTool: call({ name: 'my-skill', args: 'arg' })
+    SkillTool->>Command: validateInput()
+    SkillTool->>Command: checkPermissions()
+
+    alt inline 模式
+        SkillTool->>Command: getPromptForCommand(args, ctx)
+        Command-->>SkillTool: ContentBlockParam[]
+        SkillTool->>REPL: ToolResult
+    else fork 模式
+        SkillTool->>ForkAgent: runAgent({ context: 'fork' })
+        ForkAgent->>Command: getPromptForCommand()
+        Command-->>ForkAgent: prompt
+        ForkAgent-->>SkillTool: result
+        SkillTool->>REPL: ToolResult
+    end
+```
+
+### 6.3 Plugin hook 注入时序图
+
+```mermaid
+sequenceDiagram
+    participant Plugin as Plugin Loader
+    participant Hooks as Hook System
+    participant Tool as Tool Execution
+
+    Plugin->>Hooks: loadPluginHooks()
+    Hooks->>Hooks: convertPluginHooksToMatchers()
+    Hooks->>Hooks: registerHookCallbacks()
+
+    Tool->>Hooks: PreToolUse
+    Hooks->>Tool: proceed
+    Tool->>Tool: execute tool
+    Tool->>Hooks: PostToolUse
+    Hooks->>Hooks: runPostToolUseHooks()
+```
+
+---
+
+## 7. 工程经验
+
+### 7.1 为什么这么设计？
+
+**1. realpath 去重而非 inode**
+
+某些文件系统（虚拟/容器/NFS）报告不可靠的 inode 值。使用 `realpath` 解析符号链接得到规范路径，更可靠。
+
+**2. settings-first 安装**
+
+先写 settings，再物化。如果物化失败，下次启动时 reconciliation 会修复。避免 settings 和实际状态不一致。
+
+**3. 原子 hook 注册**
+
+先 `clearRegisteredPluginHooks()`，再 `registerHookCallbacks()`。确保新 hook 完全就绪前，旧 hook 始终有效。
+
+### 7.2 替代方案
+
+| 方案 | 优点 | 缺点 |
+|------|------|------|
+| inode 去重 | 简单 | 某些文件系统不可靠 |
+| 立即物化安装 | 操作是原子的 | 失败难以恢复 |
+| 非原子 hook 注册 | 简单 | 可能出现中间状态 |
+
+### 7.3 常见坑与避坑指南
+
+| 坑点 | 触发条件 | 解决方案 |
+|------|---------|---------|
+| 符号链接导致重复加载 | 同一 Skill 通过不同路径引用 | `realpath` 解析后去重 |
+| Skill 描述超出预算 | 大量 Skill 导致上下文溢出 | 截断非 bundled Skill 描述 |
+| Plugin 卸载后仍运行 | settings 和缓存不一致 | 原子操作 + 缓存清除 |
+| hook 注册时差 | 多线程并发注册 | 原子 clear + register |
+
+---
+
+## 8. Contributor 指南
+
+### 8.1 适合新手的文件
+
+| 文件 | 难度 | 说明 |
+|------|------|------|
+| `src/skills/bundled/` | L2 | 添加新 bundled Skill |
+| `src/skills/bundledSkills.ts` (类型定义) | L2 | 修改 Skill 结构 |
+| `src/tools/SkillTool/prompt.ts` | L3 | 修改预算管理逻辑 |
+
+### 8.2 危险逻辑（修改需谨慎）
+
+| 区域 | 风险等级 | 说明 |
+|------|---------|------|
+| `realpath` 去重逻辑 | 🟡 中 | 破坏会导致重复加载或遗漏 |
+| `O_NOFOLLOW | O_EXCL` 安全写入 | 🔴 高 | 保护参考文件不被覆盖 |
+| hook 原子注册 | 🔴 高 | 破坏会导致 hook 状态不一致 |
+| Plugin 缓存清除 | 🟡 中 | 错误清除可能导致功能丢失 |
+
+### 8.3 调试方法
+
+**1. 追踪 Skill 加载**：
+```typescript
+// 在 getSkillDirCommands() 添加日志
+console.log('Loaded skills:', deduplicatedSkills.map(s => s.name))
+```
+
+**2. 观察条件 Skill 激活**：
+```typescript
+// 在 activateConditionalSkillsForPaths() 添加日志
+console.log('Activated:', activated)
+```
+
+**3. 检查 Plugin hook 注册**：
+```typescript
+// 在 registerHookCallbacks() 后检查
+console.log('Registered hooks:', STATE.registeredHooks.length)
+```
+
+### 8.4 相关 Issue/PR
+
+- [Skill system architecture](https://github.com/anthropics/claude-code/issues?q=skills)
+- [Plugin hooks](https://github.com/anthropics/claude-code/issues?q=plugin+hook)
+- [Dynamic skill discovery](https://github.com/anthropics/claude-code/issues?q=dynamic+skill)
 
 ---
 
 ## 练习
 
-### 练习 1：创建自定义 Skill
+### 练习 1：Skill 加载来源优先级
 
-在项目目录创建 `.claude/skills/my-skill/SKILL.md`：
+**答案**：
 
-```markdown
+当同一 Skill 存在于多个来源时，按以下优先级保留：
+
+| 优先级 | 来源 | 说明 |
+|--------|------|------|
+| 1（最高） | bundled | 编译进二进制 |
+| 2 | managed | `/etc/claude-code/.claude/skills/` |
+| 3 | user | `~/.claude/skills/` |
+| 4 | project | `.claude/skills/` |
+| 5 | additional | `--add-dir` 指定的目录 |
+| 6（最低） | commands (legacy) | `.claude/commands/` |
+
+### 练习 2：inline vs fork 执行模式
+
+**答案**：
+
+| 方面 | inline 模式 | fork 模式 |
+|------|------------|-----------|
+| 执行位置 | 主对话流 | 隔离子 agent |
+| token 预算 | 共享主会话 | 独立预算 |
+| 上下文 | 共享主上下文 | 独立上下文 |
+| 适用场景 | 简单 prompt 操作 | 复杂任务、长期运行 |
+| 工具权限 | 继承主会话 | `allowedTools` 限制 |
+
+### 练习 3：Plugin 安装流程
+
+**答案**：
+
+1. 在 Marketplace 中查找 Plugin（`getPluginById()`）
+2. 写入 settings（`updateSettingsForSource()`）- 声明意图
+3. 物化 Plugin（`installResolvedPlugin()`）- 下载/拷贝到缓存
+4. 记录到 `installed_plugins_v2.json`
+
+**为什么 settings-first？**
+- 即使物化失败，settings 也会触发下次启动时的 reconciliation
+- 避免 settings 和实际状态不一致
+
 ---
-description: 一个示例自定义 skill
-when_to_use: 当用户需要了解项目文件结构时使用
-allowed-tools:
-  - Bash
-argument-hint: "[目录路径]"
+
+## 练习答案速查
+
+| 练习 | 核心答案 |
+|------|---------|
+| 1 | bundled > managed > user > project > additional > commands |
+| 2 | inline 共享上下文；fork 隔离独立预算 |
+| 3 | settings-first 先写设置再物化，支持 reconciliation |
+
 ---
 
-# 项目结构分析
+## 本章 vs Java
 
-使用 Bash 工具运行 `find $ARGUMENTS -type f | head -50`，然后分析文件结构模式。
-```text
-
-验证：
-1. 运行 `claude` 并输入 `/my-skill src/`
-2. 检查 `SkillsMenu.tsx` 是否正确显示新 skill
-3. 在 `loadSkillsDir.ts` 的 `getSkillDirCommands` 中加日志观察加载过程
-
-### 练习 2：追踪 Skill 调用链
-
-1. 在 `SkillTool.ts` 的 `call()` 方法入口加 `console.error` 日志
-2. 在 `loadSkillsDir.ts` 的 `createSkillCommand.getPromptForCommand` 中加日志
-3. 调用 `/simplify` 或 `/remember`，观察 inline 执行的完整调用链
-4. 思考：fork 模式的 skill 和 inline 模式在 token 使用上有何不同？
-
-### 练习 3：理解 Plugin Hook 注入
-
-1. 阅读 `loadPluginHooks.ts` 中的 `convertPluginHooksToMatchers()`
-2. 追踪一个 Plugin 的 `PreToolUse` hook 如何被注册到 `STATE.registeredHooks`
-3. 对比 `loadPluginHooks()` 和 `pruneRemovedPluginHooks()` 的行为差异
-4. 思考：为什么 hook 注册必须是原子的（clear + register 配对）？
-
-### 练习 4：条件 Skill 实验
-
-1. 在 SKILL.md 的 frontmatter 中添加 `paths: "src/**"`
-2. 观察该 skill 被分类为 conditional skill
-3. 当操作 `src/` 下的文件时，观察 `activateConditionalSkillsForPaths` 的日志
-4. 思考：条件 skill 的激活时机与文件操作的关联是什么？
+| 方面 | Claude Code | Java |
+|------|-------------|------|
+| Skill 定义 | Markdown/SKILL.md | 注解 + 配置类 |
+| Skill 加载 | 文件系统发现 + memoize | Spring @ComponentScan |
+| 执行模式 | inline/fork 分离 | 同步/异步 @Async |
+| Plugin 生命周期 | settings-first | Bean 生命周期 |
+| Hook 注入 | 事件驱动注册 | Spring 事件 + @EventListener |
 
 ---
 
 ## 下一篇
 
-[第11章-API通信与远程.md](./第11章-API通信与远程.md) — API 通信与远程
+👉 [第11章-API通信与远程.md](./第11章-API通信与远程.md)

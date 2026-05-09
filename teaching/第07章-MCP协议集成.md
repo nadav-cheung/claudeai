@@ -1,55 +1,123 @@
 ---
-title: "MCP 集成"
+title: "MCP 协议集成"
 description: "深入理解 Claude Code 如何通过 MCP (Model Context Protocol) 协议连接外部工具服务器，涵盖客户端生命周期、连接类型、工具桥接、Elicitation 交互、OAuth 认证等。"
 tags: [mcp, protocol, integration, tools]
-date: 2026-05-09
+date: 2026-05-10
 ---
 
-# 07 - MCP 集成
+# 07 - MCP 协议集成
 
-> **本章目标**：深入理解 Claude Code 如何通过 MCP (Model Context Protocol) 协议连接外部工具服务器，涵盖客户端生命周期、连接类型（stdio、SSE、Streamable HTTP、WebSocket）、工具/资源/提示发现、MCP 工具桥接、Elicitation 交互、OAuth 认证、企业策略过滤和 Claude.ai 官方注册表。
-
----
-
-## 目标
-
-- 理解 MCP 协议在 Claude Code 架构中的位置和作用
-- 掌握 MCP 客户端的连接、发现、执行、重连完整生命周期
-- 了解不同传输类型（stdio / SSE / HTTP / WebSocket）的实现差异
-- 理解 MCP 工具如何通过桥接层暴露给 Claude 模型
-- 掌握 MCP 认证（OAuth、Claude.ai proxy）、企业策略（allowlist/denylist）机制
-- 了解 Elicitation 机制——MCP 服务器如何主动请求用户输入
+> **本章目标**：深入理解 Claude Code 如何通过 MCP (Model Context Protocol) 协议连接外部工具服务器，掌握 MCP 客户端的连接生命周期、工具桥接机制、Elicitation 交互流程，以及 OAuth 认证和企业策略过滤的实现。
 
 ---
 
-## 核心概念
+## 1. 学习目标
 
-### MCP 协议概览
+- [ ] 理解 MCP 协议在 Claude Code 架构中的位置和作用
+- [ ] 能够追踪 MCP 客户端从连接到发现的完整调用链
+- [ ] 掌握不同传输类型（stdio / SSE / HTTP / WebSocket）的适用场景
+- [ ] 理解 MCP 工具如何通过桥接层暴露给 Claude 模型
+- [ ] 掌握 Elicitation 机制——MCP 服务器如何主动请求用户输入
+- [ ] 了解 OAuth 认证流程和企业策略过滤机制
+
+---
+
+## 2. 背景问题
+
+### 2.1 为什么这个模块存在？
 
 MCP (Model Context Protocol) 是一个开放协议，允许 AI 应用通过标准化接口连接外部工具和数据源。Claude Code 作为 MCP 客户端，可以连接多个 MCP 服务器，每个服务器提供三类能力：
 
-1. **Tools（工具）**：可调用的函数，如数据库查询、API 调用、文件操作
-2. **Resource（资源）**：可读取的数据对象，如文件内容、数据库记录
+1. **Tools（工具）**：可调用的函数，如数据库查询、API 调用
+2. **Resource（资源）**：可读取的数据对象
 3. **Prompts（提示模板）**：预定义的提示词模板
 
-```text
-Claude Code (MCP Client)
-  │
-  ├── MCP Server A (stdio)     ← 本地进程通信
-  │     ├── tools: query_db, insert_record
-  │     └── resources: schema
-  │
-  ├── MCP Server B (SSE)       ← HTTP 长连接
-  │     ├── tools: search_docs
-  │     └── prompts: summarize
-  │
-  └── MCP Server C (HTTP)      ← Streamable HTTP
-        └── tools: deploy_app
-```java
+### 2.2 它解决了什么问题？
 
-### 服务器连接类型
+- 扩展 Claude Code 的能力边界，无需修改核心代码即可添加新工具
+- 通过标准化协议连接外部服务，保证互操作性
+- 支持本地进程（stdio）、HTTP 长连接（SSE）、流式 HTTP（Streamable HTTP）、WebSocket 等多种传输方式
 
-Claude Code 支持以下传输协议，定义在 `src/services/mcp/types.ts`：
+### 2.3 如果没有它会怎样？
+
+Claude Code 将只能使用内置工具，无法连接外部服务和数据源，能力边界固定。
+
+---
+
+## 3. 源码入口
+
+| 项目 | 内容 |
+|------|------|
+| 文件路径 | `src/services/mcp/` |
+| 核心客户端 | `client.ts` |
+| 连接入口 | `connectToServer()` (client.ts:150) |
+| 配置管理 | `config.ts` |
+| 类型定义 | `types.ts` |
+| OAuth 认证 | `auth.ts` |
+| Elicitation | `elicitationHandler.ts` |
+| 工具桥接 | `src/tools/MCPTool/MCPTool.ts` |
+
+---
+
+## 4. 架构定位
+
+### 4.1 模块职责
+
+MCP 服务模块负责管理 Claude Code 与外部 MCP 服务器的连接生命周期，包括配置加载、连接建立、工具发现、请求转发和结果处理。
+
+### 4.2 连接状态
+
+```typescript
+// src/services/mcp/types.ts
+type MCPServerConnection =
+  | ConnectedMCPServer    // 已连接：client 可用
+  | FailedMCPServer       // 连接失败：携带 error 信息
+  | NeedsAuthMCPServer    // 需要认证：需要 OAuth 流程
+  | PendingMCPServer      // 等待中：正在重连
+  | DisabledMCPServer     // 已禁用：用户手动关闭
+```
+
+### 4.3 模块关系
+
+```mermaid
+graph TD
+    subgraph "配置层"
+        C[config.ts - 配置加载]
+        T[types.ts - 类型定义]
+    end
+
+    subgraph "连接层"
+        CL[client.ts - 核心客户端]
+        TR[Transport - stdio/SSE/HTTP/WS]
+    end
+
+    subgraph "工具层"
+        MT[MCPTool - 工具桥接]
+        LR[ListMcpResourcesTool]
+        RR[ReadMcpResourceTool]
+    end
+
+    subgraph "交互层"
+        EL[elicitationHandler.ts - Elicitation]
+        OA[auth.ts - OAuth]
+    end
+
+    C --> CL
+    CL --> TR
+    CL --> MT
+    MT --> LR
+    MT --> RR
+    CL --> EL
+    CL --> OA
+```
+
+---
+
+## 5. 核心源码分析
+
+### 5.1 服务器连接类型
+
+**源码位置**：`src/services/mcp/types.ts:1-80`
 
 | 类型 | 传输层 | 场景 | 配置键 |
 |------|--------|------|--------|
@@ -62,100 +130,9 @@ Claude Code 支持以下传输协议，定义在 `src/services/mcp/types.ts`：
 | `sdk` | SDK 内部传输 | SDK 消费者嵌入 | `name` |
 | `claudeai-proxy` | Claude.ai 代理 | 官方注册表服务器 | `url`, `id` |
 
-### 服务器连接状态
+### 5.2 连接建立流程
 
-```typescript
-// src/services/mcp/types.ts
-type MCPServerConnection =
-  | ConnectedMCPServer    // 已连接：client 可用
-  | FailedMCPServer       // 连接失败：携带 error 信息
-  | NeedsAuthMCPServer    // 需要认证：需要 OAuth 流程
-  | PendingMCPServer      // 等待中：正在重连
-  | DisabledMCPServer     // 已禁用：用户手动关闭
-```text
-
----
-
-## 源码导览
-
-### MCP 服务架构总览
-
-```text
-src/services/mcp/
-├── client.ts              ← 核心客户端：连接、发现、执行
-├── types.ts               ← 类型定义：配置 schema、连接状态
-├── config.ts              ← 配置管理：加载、合并、策略过滤
-├── auth.ts                ← OAuth 认证：流程、令牌管理
-├── claudeai.ts            ← Claude.ai 注册表：拉取官方服务器
-├── elicitationHandler.ts  ← Elicitation：服务器请求用户输入
-├── mcpStringUtils.ts      ← 工具名构建：mcp__server__tool 格式
-├── normalization.ts       ← 名称规范化
-├── envExpansion.ts        ← 环境变量展开
-├── headersHelper.ts       ← 动态 headers 辅助
-├── SdkControlTransport.ts ← SDK 传输层
-├── InProcessTransport.ts  ← 进程内传输（Chrome/Computer Use）
-└── utils.ts               ← 工具函数
-
-src/tools/MCPTool/
-├── MCPTool.ts             ← MCP 工具桥接模板
-├── prompt.ts              ← 工具 prompt
-├── UI.tsx                 ← 渲染 UI
-└── classifyForCollapse.ts ← 工具分类（折叠显示）
-
-src/tools/ListMcpResourcesTool/  ← 列出 MCP 资源
-src/tools/ReadMcpResourceTool/   ← 读取 MCP 资源
-
-src/components/mcp/
-├── index.ts               ← 组件导出
-├── MCPListPanel.tsx       ← MCP 服务器列表面板
-├── MCPSettings.tsx        ← MCP 设置面板
-├── MCPToolListView.tsx    ← 工具列表视图
-├── MCPToolDetailView.tsx  ← 工具详情视图
-├── ElicitationDialog.tsx  ← Elicitation 对话框
-├── MCPReconnect.tsx       ← 重连 UI
-├── CapabilitiesSection.tsx ← 能力展示
-├── MCPStdioServerMenu.tsx  ← stdio 服务器菜单
-├── MCPRemoteServerMenu.tsx ← 远程服务器菜单
-└── MCPAgentServerMenu.tsx  ← Agent 服务器菜单
-```text
-
-### 配置加载流程
-
-`src/services/mcp/config.ts` 中的 `getClaudeCodeMcpConfigs()` 是配置加载的核心入口：
-
-```text
-启动时调用 getClaudeCodeMcpConfigs()
-  │
-  ├── 1. getMcpConfigsByScope('enterprise')
-  │     └── 读取 managed-mcp.json（企业策略）
-  │         └── 如果存在企业配置 → 排他模式，忽略其他配置
-  │
-  ├── 2. getMcpConfigsByScope('user')
-  │     └── 读取 ~/.claude/settings.json 的 mcpServers
-  │
-  ├── 3. getMcpConfigsByScope('project')
-  │     └── 从根目录到 CWD 遍历 .mcp.json
-  │         └── 近 CWD 的配置覆盖父目录
-  │         └── 仅包含已批准（approved）的项目服务器
-  │
-  ├── 4. getMcpConfigsByScope('local')
-  │     └── 读取 .claude/settings.local.json
-  │
-  ├── 5. loadAllPluginsCacheOnly()
-  │     └── 加载插件提供的 MCP 服务器
-  │
-  ├── 6. dedupPluginMcpServers()
-  │     └── 基于 signature（command/url）去重
-  │         └── 手动配置优先于插件
-  │
-  └── 7. isMcpServerAllowedByPolicy()
-        └── 企业策略过滤（allowlist/denylist）
-            └── 支持名称、命令、URL 三种匹配模式
-```typescript
-
-### 服务器连接流程
-
-`src/services/mcp/client.ts` 中的 `connectToServer()` 是连接的核心：
+**源码位置**：`src/services/mcp/client.ts:150-300`
 
 ```typescript
 // connectToServer 是 memoized 的，同一配置不会重复连接
@@ -167,9 +144,7 @@ export const connectToServer = memoize(
       case 'http':   // StreamableHTTPClientTransport
       case 'ws':     // WebSocketTransport
       case 'stdio':  // StdioClientTransport
-      case 'sse-ide': // SSEClientTransport (无 auth)
-      case 'ws-ide':  // WebSocketTransport (IDE token)
-      case 'claudeai-proxy': // StreamableHTTPClientTransport + OAuth
+      // ...
     }
 
     // 2. 创建 MCP Client 并连接
@@ -187,72 +162,14 @@ export const connectToServer = memoize(
     return { type: 'connected', client, name, capabilities, ... }
   }
 )
-```text
+```
 
-**连接超时和批处理**：
-- 本地服务器（stdio）批处理大小：3（`MCP_SERVER_CONNECTION_BATCH_SIZE`）
-- 远程服务器批处理大小：20（`MCP_REMOTE_SERVER_CONNECTION_BATCH_SIZE`）
-- 单个工具调用超时：~27.8 小时（`DEFAULT_MCP_TOOL_TIMEOUT_MS = 100_000_000`）
-- 单个请求超时：60 秒（`MCP_REQUEST_TIMEOUT_MS = 60_000`）
-- 连接超时：30 秒（`MCP_TIMEOUT` 环境变量，默认 30000ms）
+### 5.3 MCPTool 桥接模板
 
----
-
-## 数据流图
-
-### MCP 工具调用完整流程
-
-```text
-Claude 模型返回 tool_use: { name: "mcp__serverA__query", input: {...} }
-  │
-  ▼
-工具执行引擎 (toolExecution.ts)
-  │ 匹配工具名 "mcp__serverA__query" → MCPTool 实例
-  ▼
-MCPTool.call(input, context)
-  │
-  ├── 1. 从 mcpClients 中找到 serverA 的 ConnectedMCPServer
-  │
-  ├── 2. ensureConnectedClient(serverA)
-  │     └── 如果连接断开 → 自动重连
-  │
-  ├── 3. 处理输入中的图片内容
-  │     └── 识别 image MIME 类型 → 转换为 Base64ImageSource
-  │
-  ├── 4. client.request({ method: 'tools/call', params: { name, arguments } })
-  │     └── 超时由 getMcpToolTimeoutMs() 控制
-  │
-  ├── 5. 处理返回结果
-  │     ├── 文本内容 → 直接使用
-  │     ├── 图片内容 → 缩小/下采样 → 返回给模型
-  │     └── 二进制 blob → 持久化到磁盘 → 返回路径
-  │
-  ├── 6. 截断检查
-  │     └── getContentSizeEstimate() → 超过限制则截断
-  │
-  └── 7. 返回 ToolResult
-        └── mapToolResultToToolResultBlockParam() → tool_result 消息
-```text
-
-### 配置优先级
-
-```text
-优先级从低到高：
-  Claude.ai 连接器 < 插件服务器 < 用户配置 < 项目配置(.mcp.json) < 本地配置 < 企业配置
-                                                        ↑
-                                              企业配置存在时，排他控制
-```typescript
-
----
-
-## 关键代码
-
-### MCPTool 桥接模板
-
-`src/tools/MCPTool/MCPTool.ts` 是所有 MCP 工具的模板。它本身不执行任何操作——所有方法都在 `client.ts` 中被覆盖：
+**源码位置**：`src/tools/MCPTool/MCPTool.ts`
 
 ```typescript
-// src/tools/MCPTool/MCPTool.ts
+// MCPTool 是所有 MCP 工具的模板
 export const MCPTool = buildTool({
   isMcp: true,
   name: 'mcp',              // 被 client.ts 覆盖为 mcp__server__tool
@@ -264,7 +181,7 @@ export const MCPTool = buildTool({
   renderToolUseProgressMessage,
   renderToolResultMessage,
 })
-```java
+```
 
 在 `client.ts` 中，每个 MCP 工具被创建为 MCPTool 的变体：
 
@@ -281,73 +198,45 @@ function createToolOverride(serverName, toolDef) {
     },
   }
 }
+```
+
+### 5.4 工具名规范化
+
+**源码位置**：`src/services/mcp/mcpStringUtils.ts`
+
 ```typescript
-
-### 工具名规范化
-
-MCP 工具名格式为 `mcp__<server>__<tool>`，在 `mcpStringUtils.ts` 中构建：
-
-```typescript
-// src/services/mcp/mcpStringUtils.ts
 export function buildMcpToolName(serverName: string, toolName: string): string {
   const normalizedServer = normalizeNameForMCP(serverName)
   const normalizedTool = normalizeNameForMCP(toolName)
   return `mcp__${normalizedServer}__${normalizedTool}`
 }
-```java
+```
 
-### 资源工具
+### 5.5 Elicitation 机制
 
-`ListMcpResourcesTool` 和 `ReadMcpResourceTool` 是两个内置工具，允许模型发现和读取 MCP 服务器提供的资源：
+**源码位置**：`src/services/mcp/elicitationHandler.ts:40-100`
 
-```typescript
-// src/tools/ListMcpResourcesTool/ListMcpResourcesTool.ts
-// 输入：可选的 server 名称过滤
-// 输出：资源列表 [{ uri, name, mimeType, description, server }]
-
-// src/tools/ReadMcpResourceTool/ReadMcpResourceTool.ts
-// 输入：server 名称 + resource URI
-// 输出：资源内容（文本或持久化的二进制 blob 路径）
-```java
-
-资源读取的一个关键细节：二进制内容（blob）不会被直接返回给模型，而是持久化到磁盘，返回文件路径：
+Elicitation 允许 MCP 服务器主动请求用户输入：
 
 ```typescript
-// ReadMcpResourceTool 中的 blob 处理
-if ('blob' in c && typeof c.blob === 'string') {
-  const persisted = await persistBinaryContent(
-    Buffer.from(c.blob, 'base64'),
-    c.mimeType,
-    persistId,
-  )
-  return { uri, mimeType, blobSavedTo: persisted.filepath }
-}
-```java
-
-### Elicitation 机制
-
-Elicitation 允许 MCP 服务器主动请求用户输入，这是 MCP 协议的一个重要交互模式：
-
-```typescript
-// src/services/mcp/elicitationHandler.ts
 export type ElicitationRequestEvent = {
   serverName: string
   requestId: string | number
   params: ElicitRequestParams
   signal: AbortSignal
   respond: (response: ElicitResult) => void
-  waitingState?: ElicitationWaitingState   // URL 模式的等待 UI
-  onWaitingDismiss?: (action) => void       // 用户关闭等待 UI
+  waitingState?: ElicitationWaitingState
+  onWaitingDismiss?: (action) => void
 }
-```text
+```
 
 支持两种模式：
 - **form 模式**：服务器发送表单 schema，CLI 渲染为对话框
 - **url 模式**：服务器发送 URL，CLI 在浏览器中打开，等待回调
 
-### OAuth 认证流程
+### 5.6 OAuth 认证流程
 
-`src/services/mcp/auth.ts` 实现了完整的 OAuth 2.0 流程：
+**源码位置**：`src/services/mcp/auth.ts`
 
 ```text
 1. discoverAuthorizationServerMetadata(url)
@@ -368,49 +257,205 @@ export type ElicitationRequestEvent = {
 
 6. refreshTokens(refreshToken)
    └── 使用 refresh_token 刷新访问令牌
-```java
+```
 
-**Claude.ai 代理认证**（`createClaudeAiProxyFetch`）：
-- 使用 Claude.ai 的 OAuth token 进行认证
-- 401 时自动重试一次（token 可能过期）
-- 支持 token 刷新的锁竞争处理
+### 5.7 配置加载流程
 
-### 企业策略过滤
+**源码位置**：`src/services/mcp/config.ts:100-200`
 
-`src/services/mcp/config.ts` 提供了多层策略控制：
-
-```typescript
-// denylist 优先于 allowlist
-function isMcpServerAllowedByPolicy(name, config): boolean {
-  // 1. 检查 denylist
-  if (isMcpServerDenied(name, config)) return false
-
-  // 2. 检查 allowlist
-  const settings = getMcpAllowlistSettings()
-  if (!settings.allowedMcpServers) return true  // 无限制
-
-  // 3. 匹配模式：名称 / 命令数组 / URL 通配符
-  // URL 支持 * 通配符，如 "https://*.example.com/*"
-}
-```typescript
-
-**去重机制**（`dedupPluginMcpServers` / `dedupClaudeAiMcpServers`）：
-- 基于"签名"（signature）去重：stdio 命令数组 / URL
-- 手动配置优先于插件，插件之间先加载优先
-- CCR 代理 URL 会自动 unwrap 后比较
-
-### Claude.ai 注册表
-
-`src/services/mcp/claudeai.ts` 从 Claude.ai 平台拉取组织配置的 MCP 服务器：
-
-```typescript
-export const fetchClaudeAIMcpConfigsIfEligible = memoize(async () => {
-  // 1. 检查 OAuth token 可用性
-  // 2. 调用 Claude.ai API 获取 MCP 服务器列表
-  // 3. 转换为 McpClaudeAIProxyServerConfig（type: 'claudeai-proxy'）
-  // 4. 通过代理 URL 路由请求
-})
 ```text
+启动时调用 getClaudeCodeMcpConfigs()
+  │
+  ├── 1. getMcpConfigsByScope('enterprise')
+  │     └── 读取 managed-mcp.json（企业策略）
+  │         └── 如果存在企业配置 → 排他模式，忽略其他配置
+  │
+  ├── 2. getMcpConfigsByScope('user')
+  │     └── 读取 ~/.claude/settings.json 的 mcpServers
+  │
+  ├── 3. getMcpConfigsByScope('project')
+  │     └── 从根目录到 CWD 遍历 .mcp.json
+  │
+  ├── 4. getMcpConfigsByScope('local')
+  │     └── 读取 .claude/settings.local.json
+  │
+  ├── 5. loadAllPluginsCacheOnly()
+  │     └── 加载插件提供的 MCP 服务器
+  │
+  └── 6. isMcpServerAllowedByPolicy()
+        └── 企业策略过滤（allowlist/denylist）
+```
+
+### 5.8 设计原因
+
+1. **为什么工具名要用 `mcp__server__tool` 格式？**
+   - 避免 MCP 服务器工具名与内置工具名冲突
+   - 规范化处理特殊字符（空格、连字符等）
+
+2. **为什么连接是 memoized 的？**
+   - 同一 MCP 服务器可能被多个工具引用，避免重复连接
+   - 节省资源，加快工具调用速度
+
+3. **为什么有企业排他配置？**
+   - 企业安全策略要求强制执行，不允许用户绕过
+
+---
+
+## 6. 可视化结构
+
+### 6.1 MCP 工具调用完整流程
+
+```mermaid
+sequenceDiagram
+    participant Model as Claude 模型
+    participant TE as 工具执行引擎
+    participant MCPT as MCPTool
+    participant Client as MCP Client
+    participant Server as MCP Server
+
+    Model->>TE: tool_use: mcp__serverA__query
+    TE->>MCPT: call(input, context)
+    MCPT->>Client: ensureConnectedClient(serverA)
+    alt 连接断开
+        Client->>Client: 自动重连
+    end
+    Client->>Server: tools/call { name, arguments }
+    Server-->>Client: 工具结果
+    Client-->>MCPT: ToolResult
+    MCPT-->>TE: result
+    TE-->>Model: tool_result
+```
+
+### 6.2 配置优先级
+
+```mermaid
+graph LR
+    subgraph "优先级从低到高"
+        A[Claude.ai 连接器]
+        B[插件服务器]
+        C[用户配置]
+        D[项目配置]
+        E[本地配置]
+        F[企业配置]
+    end
+
+    F -->|排他| D
+    F -->|排他| E
+    F -->|排他| C
+    F -->|排他| B
+    F -->|排他| A
+```
+
+### 6.3 模块结构图
+
+```mermaid
+graph TD
+    subgraph "src/services/mcp/"
+        C[client.ts]
+        CF[config.ts]
+        T[types.ts]
+        A[auth.ts]
+        E[elicitationHandler.ts]
+        M[mcpStringUtils.ts]
+        N[normalization.ts]
+    end
+
+    subgraph "src/tools/MCPTool/"
+        MT[MCPTool.ts]
+        UI[UI.tsx]
+    end
+
+    subgraph "MCP SDK"
+        SDK[Client]
+        Transport[Transports]
+    end
+
+    C --> CF
+    C --> T
+    C --> A
+    C --> E
+    C --> M
+    C --> N
+    C --> SDK
+    SDK --> Transport
+    MT --> C
+```
+
+---
+
+## 7. 工程经验
+
+### 7.1 为什么这么设计？
+
+1. **标准化协议**：使用 MCP 协议而非私有协议，实现与外部工具的互操作性
+2. **传输层抽象**：支持多种传输方式，适应不同部署场景
+3. **工具名规范化**：避免命名冲突，提高可预测性
+
+### 7.2 替代方案
+
+| 方案 | 优点 | 缺点 |
+|------|------|------|
+| 直接集成 | 性能最好 | 耦合高，扩展性差 |
+| Plugin 系统 | 比 MCP 更灵活 | 需要学习新系统 |
+| REST API | 通用性强 | 需要额外的认证机制 |
+
+### 7.3 常见坑与避坑指南
+
+1. **401 错误处理**：
+   - 捕获 `sentToken` 避免并发竞态
+   - 问题：并发请求都收到 401，刷新后重试可能用错 token
+
+2. **连接超时**：
+   - stdio 服务器：30 秒默认超时
+   - 远程服务器：60 秒请求超时
+
+3. **资源清理**：
+   - 二进制 blob 不会直接返回，而是持久化到磁盘
+   - 需要正确处理文件生命周期
+
+---
+
+## 8. Contributor 指南
+
+### 8.1 适合新手的文件
+
+| 文件 | 任务类型 | 难度 |
+|------|---------|------|
+| `mcpStringUtils.ts` | 工具名规范化修改 | L2 |
+| `normalization.ts` | 名称规范化规则调整 | L2 |
+| `types.ts` | 添加新的连接类型 | L4 |
+
+### 8.2 危险逻辑（修改需谨慎）
+
+| 文件/函数 | 风险等级 | 说明 |
+|-----------|---------|------|
+| `connectToServer()` | 🟡 中 | 连接管理逻辑错误会导致资源泄漏 |
+| `auth.ts` | 🔴 高 | OAuth 处理不当会导致安全问题 |
+| `createToolOverride()` | 🟡 中 | 工具名构建错误会影响工具调用 |
+
+### 8.3 调试方法
+
+1. **查看 MCP 日志**：
+   ```bash
+   CLAUDE_DEBUG=true claude
+   # 查找 "mcp" 相关日志
+   ```
+
+2. **测试 MCP 服务器连接**：
+   ```bash
+   claude mcp list
+   claude mcp start <server-name>
+   ```
+
+3. **强制重新连接**：
+   ```bash
+   # 删除连接缓存
+   rm -rf ~/.claude/mcp/
+   ```
+
+### 8.4 相关 Issue/PR
+
+- MCP SDK 相关问题查看 `@modelcontextprotocol/sdk`
 
 ---
 
@@ -418,82 +463,55 @@ export const fetchClaudeAIMcpConfigsIfEligible = memoize(async () => {
 
 ### 练习 1：连接类型对比
 
-**类比 Java**：这类似于 JDBC 的驱动类型——不同数据库有不同驱动，MCP 的传输类型类似于此。
-
-**答案**：
-
 | 传输类型 | 创建方式 | 特点 |
 |---------|---------|------|
-| stdio | `StdioClientTransport` | 子进程，本地通信 |
-| sse | `SSEClientTransport` | HTTP 长连接，服务器推送 |
-| http | `StreamableHTTPClientTransport` | 现代 HTTP，支持流式 |
-| ws | `WebSocketTransport` | 双向实时通信 |
+| stdio | `StdioClientTransport` | ? |
+| sse | `SSEClientTransport` | ? |
+| http | `StreamableHTTPClientTransport` | ? |
+| ws | `WebSocketTransport` | ? |
 
 ### 练习 2：配置优先级
 
-**答案**：
-
 | 优先级 | 来源 | 说明 |
 |--------|------|------|
-| 1（最低） | claudeai | Claude.ai 注册表 |
-| 2 | 插件 | 插件提供的服务器 |
-| 3 | 用户 | ~/.claude/settings.json |
-| 4 | 项目 | .mcp.json |
-| 5 | 本地 | settings.local.json |
-| 6（最高） | 企业 | managed-mcp.json（排他） |
+| 1（最低） | ? | ? |
+| 6（最高） | ? | ? |
 
-**企业排他**：存在企业配置时，忽略其他配置，确保企业安全策略不被绕过。
-
-**项目 approved**：项目服务器需要显式批准才能使用，防止恶意 .mcp.json 注入。
+**企业排他是什么意思？**
 
 ### 练习 3：工具桥接
 
-**答案**：
-
 **为什么需要规范化？**
-- MCP 服务器名称可能包含特殊字符（空格、连字符等）
-- 工具名需要符合 Claude Code 的命名规范
-- 避免命名冲突
-
-**normalizeNameForMCP()**：
-- 替换特殊字符为下划线
-- 确保跨服务器工具名唯一
 
 ### 练习 4：Elicitation 模式
 
-**答案**：
-
 | 模式 | 流程 | 类比 |
 |------|------|------|
-| form | 服务器发送 schema → CLI 渲染对话框 → 用户填写 → 提交 | 表单提交 |
-| url | 服务器发送 URL → CLI 打开浏览器 → 用户授权 → 回调 | OAuth 授权码流程 |
+| form | ? | ? |
+| url | ? | ? |
 
-**completed 通知**：用户提交表单或授权完成后，`respond()` 被调用，解除工具执行等待状态。
-
-### 练习 5：认证重试
-
-**答案**：
+### 练习 5：OAuth 重试
 
 **为什么捕获 `sentToken`？**
 
-并发 401 场景：
-```text
-时刻T1: 请求A 发送 token X，收到 401
-时刻T2: 请求B 发送 token Y，收到 401
-时刻T3: 刷新 token X → token Z
-时刻T4: 重试请求A，使用 token Z
-```text
+---
 
-如果在重试时重新读取 token，可能读到新的 token（如 token Z），而不是请求 A 原来发送的 token X，导致重试失败。
+## 练习答案速查
 
-**解决方案**：捕获 `sentToken`，重试时使用相同 token。
+| 练习 | 答案 |
+|------|------|
+| 1 | stdio=进程，sse=HTTP长连接，http=流式HTTP，ws=双向 |
+| 2 | 企业排他，存在企业配置时忽略其他配置 |
+| 3 | 规范化避免冲突，确保命名合规 |
+| 4 | form=对话框，url=浏览器授权 |
+| 5 | 捕获sentToken避免并发竞态 |
 
 ---
 
-## MCP vs JDBC
+## 本章 vs Java
 
-| 方面 | MCP | JDBC |
-|------|------|------|
+| 方面 | Claude Code MCP | Java JDBC |
+|------|-----------------|-----------|
 | 协议 | JSON-RPC over stdio/HTTP/WS | SQL over TCP |
 | 发现 | `tools/list` 动态发现 | `DatabaseMetaData` |
 | 调用 | `tools/call` | `Statement.execute()` |
@@ -503,18 +521,6 @@ export const fetchClaudeAIMcpConfigsIfEligible = memoize(async () => {
 
 ---
 
-## 练习答案速查
-
-| 练习 | 核心答案 |
-|------|---------|
-| 1 | stdio=进程，sse=HTTP长连接，http=流式HTTP，ws=双向 |
-| 2 | 企业排他，项目需approved |
-| 3 | 规范化避免冲突，确保命名合规 |
-| 4 | form=对话框，url=浏览器授权 |
-| 5 | 捕获sentToken避免并发竞态 |
-
----
-
 ## 下一篇
 
-[第08章-Agent与多Agent协作.md](./第08章-Agent与多Agent协作.md) — Agent 与多 Agent 协作
+👉 [第08章-Agent与多Agent协作.md](./第08章-Agent与多Agent协作.md)
