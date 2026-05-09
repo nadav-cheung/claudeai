@@ -1,3 +1,10 @@
+---
+title: "终端 UI 框架 (Ink)"
+description: "理解 Claude Code 如何使用 Ink（React for CLI）在终端中渲染界面，包括 Yoga 布局、自定义 reconciler、事件系统和组件架构。"
+tags: [ink, ui, terminal, react, yoga-layout]
+date: 2026-05-09
+---
+
 # 02 - 终端 UI 框架 (Ink)
 
 > **本章目标**：理解 Claude Code 如何使用 Ink（React for CLI）在终端中渲染界面，包括 Yoga 布局、自定义 reconciler、事件系统和组件架构。
@@ -18,6 +25,7 @@ Ink 是一个**用 React 模型构建终端 UI** 的框架。核心思想：
 | `process.stdout` | 渲染目标 |
 
 Claude Code 对 Ink 做了大量定制，包括：
+
 - 自定义主题系统 (`ThemeProvider`)
 - 自定义 Yoga 布局的 native 实现
 - 终端能力查询系统
@@ -71,6 +79,7 @@ export async function createRoot(options?: RenderOptions): Promise<Root> {
 ```
 
 对外暴露的组件：
+
 - `Box` → `ThemedBox`（带主题的 Flexbox 容器）
 - `Text` → `ThemedText`（带主题的文本）
 - `useTheme()` → 获取当前主题
@@ -126,6 +135,7 @@ src/native-ts/yoga-layout/
 ```
 
 Yoga 是 Facebook 开发的 Flexbox 布局引擎（也是 React Native 使用的），支持：
+
 - `flexDirection` (row/column)
 - `justifyContent` / `alignItems`
 - `padding` / `margin`
@@ -140,6 +150,7 @@ DOM 树 → renderNodeToOutput() → Output (ANSI 字符串) → stdout
 ```
 
 支持的高级特性：
+
 - **边框渲染** (`render-border.ts`)
 - **文本换行** (`wrap-text.ts`, `wrapAnsi.ts`)
 - **ANSI 颜色** (`colorize.ts`)
@@ -183,13 +194,14 @@ src/ink/events/
 ```
 
 Ink 的事件系统支持：
+
 - **键盘事件**：`onKeyPress`，通过 `parse-keypress.ts` 解析
 - **焦点事件**：`onFocus` / `onBlur`
 - **输入事件**：`useInput()` hook
 
 ### 5.1 `parse-keypress.ts` — 键盘解析层
 
-文件：`src/ink/parse-keypress.ts`
+**文件**：`src/ink/parse-keypress.ts`
 
 这是键盘输入解析的核心模块，负责将终端的原始字节流转换为结构化的按键事件。核心函数是 `parseMultipleKeypresses()`，它是一个**状态机**，每次调用传入上次状态，返回本轮按键和更新后的状态。
 
@@ -212,6 +224,7 @@ parseMultipleKeypresses(prevState, rawInput)
 **按键名称映射**（`keyName` 表）
 
 覆盖所有主流终端的按键编码：
+
 - XTerm ESC 序列：`ESC [ A` → `up`，`ESC O P` → `f1`
 - 应用数字键盘模式：`ESC Op` → `0`，`ESC OM` → `return`
 - 修饰键变体：`ESC [ a` → `shift+up`，`ESC [ 2$` → `shift+insert`
@@ -224,7 +237,7 @@ parseMultipleKeypresses(prevState, rawInput)
 3. modifyOtherKeys   — xterm 扩展：ESC[27;2;13~
 ```
 
- Kitty 协议修饰符编码：`1 + shift(1) + alt(2) + ctrl(4) + super(8)`，例如 `ESC[13;2u` 中 `2` = Shift。
+Kitty 协议修饰符编码：`1 + shift(1) + alt(2) + ctrl(4) + super(8)`，例如 `ESC[13;2u` 中 `2` = Shift。
 
 **粘贴检测**
 
@@ -285,8 +298,8 @@ src/hooks/
 ├── useSettingsChange.ts       ← 设置变更监听
 ├── useIdeLogging.ts           ← IDE 日志
 ├── toolPermission/            ← 工具权限处理
-│   └── handlers/              ← 各种权限处理器
-└── notifs/                    ← 通知 hooks
+│   └── handlers/             ← 各种权限处理器
+└── notifs/                   ← 通知 hooks
 ```
 
 ### 7.1 `useInput` — 键盘输入

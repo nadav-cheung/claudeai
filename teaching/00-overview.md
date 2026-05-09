@@ -1,3 +1,10 @@
+---
+title: "全局架构总览"
+description: "理解 Claude Code CLI 的整体架构、模块关系、核心数据流，以及源文件组织方式。"
+tags: [architecture, overview, core-concepts]
+date: 2026-05-09
+---
+
 # 00 - 全局架构总览
 
 > **本章目标**：读完本章后，你将理解 Claude Code CLI 的整体架构、模块关系、核心数据流，以及 1884 个源文件是如何组织成一个完整系统的。
@@ -7,6 +14,7 @@
 ## 1. 项目概览
 
 Claude Code 是一个**终端 AI 助手 CLI**，核心能力：
+
 - 在终端中与 Claude 模型对话
 - 通过**工具调用**读写文件、执行命令、搜索代码
 - 管理 Git 工作流、PR、远程会话
@@ -14,6 +22,7 @@ Claude Code 是一个**终端 AI 助手 CLI**，核心能力：
 - 集成 MCP 外部服务
 
 **技术栈**：
+
 | 技术 | 用途 |
 |------|------|
 | TypeScript | 主语言 |
@@ -49,35 +58,35 @@ src/
 ├── services/tools/       ← 【核心调度】工具执行引擎
 │
 ├── services/             ← 服务层
-│   ├── api/              ← Anthropic API 通信
-│   ├── mcp/              ← MCP 协议客户端
-│   ├── compact/          ← 上下文压缩
-│   ├── analytics/        ← 遥测与 A/B（GrowthBook）
-│   ├── plugins/          ← 插件系统
-│   ├── oauth/            ← OAuth 认证
+│   ├── api/             ← Anthropic API 通信
+│   ├── mcp/             ← MCP 协议客户端
+│   ├── compact/         ← 上下文压缩
+│   ├── analytics/       ← 遥测与 A/B（GrowthBook）
+│   ├── plugins/         ← 插件系统
+│   ├── oauth/           ← OAuth 认证
 │   └── ...
 │
-├── state/                ← 应用状态管理（AppState Store）
-├── context/              ← React Context（stats, fps, mailbox）
-├── constants/            ← 常量与配置
-├── types/                ← TypeScript 类型定义
-├── utils/                ← 工具函数库
-│   ├── permissions/      ← 权限规则引擎
-│   ├── settings/         ← 设置管理
-│   ├── git/              ← Git 操作封装
-│   ├── memory/           ← 记忆系统
-│   ├── swarm/            ← 多 Agent 协作
+├── state/               ← 应用状态管理（AppState Store）
+├── context/             ← React Context（stats, fps, mailbox）
+├── constants/           ← 常量与配置
+├── types/               ← TypeScript 类型定义
+├── utils/               ← 工具函数库
+│   ├── permissions/     ← 权限规则引擎
+│   ├── settings/        ← 设置管理
+│   ├── git/             ← Git 操作封装
+│   ├── memory/          ← 记忆系统
+│   ├── swarm/          ← 多 Agent 协作
 │   └── ...
 │
-├── skills/               ← 技能系统（bundled skills）
-├── plugins/              ← 插件系统入口
-├── coordinator/          ← 协调者模式（多 Agent）
-├── assistant/            ← KAIROS 助手模式
-├── tasks/                ← 后台任务实现
-├── query/                ← 查询引擎
-├── vim/                  ← Vim 模式支持
-├── voice/                ← 语音模式
-└── remote/               ← 远程会话
+├── skills/              ← 技能系统（bundled skills）
+├── plugins/             ← 插件系统入口
+├── coordinator/         ← 协调者模式（多 Agent）
+├── assistant/          ← KAIROS 助手模式
+├── tasks/              ← 后台任务实现
+├── query/              ← 查询引擎
+├── vim/                ← Vim 模式支持
+├── voice/              ← 语音模式
+└── remote/             ← 远程会话
 ```
 
 ---
@@ -164,6 +173,7 @@ src/
 ```
 
 关键文件：
+
 - `src/components/PromptInput/PromptInput.tsx` — 输入框组件
 - `src/utils/messages.ts` — 消息构建工具
 - `src/commands.ts` — 命令路由表
@@ -178,6 +188,7 @@ src/
 ```
 
 关键文件：
+
 - `src/services/api/` — API 通信层
 - `src/constants/prompts.ts` — system prompt 模板
 - `src/utils/systemPrompt.ts` — system prompt 组装
@@ -194,6 +205,7 @@ API 返回 tool_use 块
 ```
 
 关键文件：
+
 - `src/services/tools/toolExecution.ts` — 执行入口
 - `src/Tool.ts` — 工具接口定义
 - `src/hooks/useCanUseTool.ts` — 权限检查 hook
@@ -210,6 +222,7 @@ API 返回 tool_use 块
 ```
 
 关键文件：
+
 - `src/services/compact/compact.ts` — 压缩核心
 - `src/services/tokenEstimation.ts` — token 估算
 
@@ -296,8 +309,8 @@ bootstrap/state.ts
 AppStateStore
   ├── toolPermissionContext  ← 当前权限上下文
   ├── messages               ← 对话消息列表
-  ├── mcp                    ← MCP 连接状态和工具
-  ├── autoModeState          ← 自动模式状态
+  ├── mcp                   ← MCP 连接状态和工具
+  ├── autoModeState         ← 自动模式状态
   └── ... UI 相关状态
 ```
 
@@ -333,6 +346,7 @@ const getTeamCreateTool = () =>
 ### 7.3 工具接口统一
 
 所有工具实现同一个 `Tool` 接口（定义在 `Tool.ts`），核心方法：
+
 - `name` — 工具名称
 - `prompt` — 给模型的工具描述
 - `inputSchema` — Zod 定义的参数 schema
@@ -359,6 +373,7 @@ function App(t0) {
 ```
 
 关键识别点：
+
 - `_c(N)` — 创建缓存实例的调用，N 是编译器分配的槽号
 - `$[0]`、`$[1]` — 缓存的变量槽，存的是上次渲染的值
 - `if ($[0] !== x || $[1] !== y)` — 编译后自动生成的相等性检查
@@ -373,8 +388,8 @@ function App(t0) {
 main.tsx
   ├── entrypoints/init.ts          ← 初始化
   ├── bootstrap/state.ts           ← 全局状态
-  ├── commands.ts                  ← 命令注册
-  ├── tools.ts                     ← 工具注册
+  ├── commands.ts                 ← 命令注册
+  ├── tools.ts                    ← 工具注册
   ├── replLauncher.tsx             ← REPL 启动
   │     ├── components/App.tsx     ← Context 树
   │     └── screens/REPL.tsx       ← 主屏幕
@@ -382,7 +397,7 @@ main.tsx
   │           ├── services/api/    ← API 调用
   │           ├── services/tools/  ← 工具执行
   │           └── services/mcp/    ← MCP 集成
-  └── services/                    ← 各种服务初始化
+  └── services/                   ← 各种服务初始化
 ```
 
 ---
@@ -460,7 +475,7 @@ const getTool = () => require('./tools/Tool.js').Tool
 
 ---
 
-## 练习
+## 10. 练习
 
 ### 练习 1：找入口
 

@@ -1,3 +1,10 @@
+---
+title: "入口与启动流程"
+description: "理解从用户执行 claude 命令到 REPL 界面出现的完整启动链路，包括 CLI 解析、初始化、认证、工具注册等。"
+tags: [startup, bootstrap, initialization, cli]
+date: 2026-05-09
+---
+
 # 01 - 入口与启动流程
 
 > **本章目标**：理解从用户执行 `claude` 命令到 REPL 界面出现的完整启动链路，包括 CLI 解析、初始化、认证、工具注册等。
@@ -21,7 +28,7 @@ Phase 5: 后台预取 (deferredPrefetches)         非阻塞
 
 ## 2. Phase 0: 模块加载与副作用预启动
 
-文件：`src/main.tsx:1-209`
+**文件**：`src/main.tsx:1-209`
 
 ### 2.1 三个关键预启动副作用
 
@@ -41,6 +48,7 @@ startKeychainPrefetch();
 ### 2.2 大规模 import
 
 `main.tsx` 的 import 区域有约 **200 行**，导入了：
+
 - Commander.js（CLI 解析）
 - React + Ink（UI 框架）
 - 所有工具（`tools.ts`）
@@ -75,7 +83,7 @@ if ("external" !== 'ant' && isBeingDebugged()) {
 
 ## 3. Phase 1: CLI 参数解析
 
-文件：`src/main.tsx:585` → `main()` 函数
+**文件**：`src/main.tsx:585` → `main()` 函数
 
 ### 3.1 入口函数 `main()`
 
@@ -143,7 +151,7 @@ const program = new CommanderCommand()
 
 ## 4. Phase 2: init() 初始化
 
-文件：`src/entrypoints/init.ts`
+**文件**：`src/entrypoints/init.ts`
 
 `init()` 是一个 `memoize` 包装的异步函数，确保只执行一次。核心步骤：
 
@@ -156,15 +164,15 @@ init()
   ├── 初始化1P事件日志 (异步)       ← OpenTelemetry 日志
   ├── populateOAuthAccountInfoIfNeeded() ← OAuth 信息预填充
   ├── initJetBrainsDetection()     ← IDE 检测
-  ├── detectCurrentRepository()    ← Git 仓库检测
+  ├── detectCurrentRepository()   ← Git 仓库检测
   ├── initializeRemoteManagedSettingsLoadingPromise() ← 远程设置
   ├── initializePolicyLimitsLoadingPromise() ← 策略限制
   ├── recordFirstStartTime()       ← 记录首次启动时间
   ├── configureGlobalMTLS()        ← mTLS 配置
   ├── configureGlobalAgents()      ← HTTP 代理配置
-  ├── preconnectAnthropicApi()     ← API 预连接 (TCP+TLS)
+  ├── preconnectAnthropicApi()      ← API 预连接 (TCP+TLS)
   ├── setShellIfWindows()          ← Windows git-bash 设置
-  └── registerCleanup()            ← 注册清理回调
+  └── registerCleanup()           ← 注册清理回调
 ```
 
 ### 4.1 关键优化：API 预连接
@@ -197,6 +205,7 @@ runMigrations()
 ```
 
 每次启动检查 `migrationVersion`，执行必要的设置迁移。当前版本是 11，包含：
+
 - 自动更新设置迁移
 - 绕过权限设置迁移
 - MCP 服务器配置迁移
@@ -237,7 +246,7 @@ main()
 
 ### 6.2 launchRepl()
 
-文件：`src/replLauncher.tsx`
+**文件**：`src/replLauncher.tsx`
 
 ```typescript
 export async function launchRepl(root, appProps, replProps, renderAndRun) {
@@ -260,12 +269,12 @@ export async function launchRepl(root, appProps, replProps, renderAndRun) {
   ├── StatsProvider                ← 统计数据
   ├── AppStateProvider             ← 应用状态
   │   ├── MailboxProvider          ← Agent 间通信
-  │   └── VoiceProvider            ← 语音模式
-  │       └── <REPL>               ← 主屏幕
+  │   └── VoiceProvider           ← 语音模式
+  │       └── <REPL>              ← 主屏幕
   │           ├── PromptInput      ← 输入框
   │           ├── MessageList      ← 消息列表
-  │           ├── PermissionReq    ← 权限对话框
-  │           └── Spinner          ← 加载状态
+  │           ├── PermissionReq   ← 权限对话框
+  │           └── Spinner         ← 加载状态
 ```
 
 ---
@@ -278,6 +287,7 @@ startDeferredPrefetches()
 ```
 
 REPL 首次渲染后触发的非阻塞预取：
+
 - `initUser()` — 用户信息
 - `getUserContext()` — 用户上下文
 - `getSystemContext()` — 系统上下文（git status 等）

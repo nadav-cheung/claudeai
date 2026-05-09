@@ -1,3 +1,10 @@
+---
+title: "A07 - MCP 集成代码详解"
+description: "深入解析 Claude Code MCP (Model Context Protocol) 集成系统的核心代码，包括 MCP 客户端生命周期、连接管理、工具桥接等。"
+tags: [code, mcp, protocol, integration]
+date: 2026-05-09
+---
+
 # A07 - MCP 集成代码详解
 
 > **本文档目标**：深入解析 Claude Code MCP (Model Context Protocol) 集成系统的核心代码，包括 MCP 客户端生命周期、连接管理、工具桥接等。

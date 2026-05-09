@@ -1,4 +1,11 @@
-# 08 - Agent 与多 Agent 协作 (Agent and Multi-Agent Collaboration)
+---
+title: "Agent 与多 Agent 协作"
+description: "理解 Claude Code 中 Agent 子代理的生成机制、多 Agent 团队（Swarm）的创建与生命周期管理、消息传递系统，以及三种任务类型的实现差异。"
+tags: [agent, multi-agent, team, swarm]
+date: 2026-05-09
+---
+
+# 08 - Agent 与多 Agent 协作
 
 > **本章目标**：理解 Claude Code 中 Agent 子代理的生成机制、多 Agent 团队（Swarm）的创建与生命周期管理、消息传递系统，以及三种任务类型（LocalAgentTask / InProcessTeammateTask / RemoteAgentTask）的实现差异。
 
@@ -83,7 +90,7 @@ Team (config.json)
 
 ## 源码导览
 
-### 1. Agent 工具架构
+### Agent 工具架构
 
 ```
 src/tools/AgentTool/
@@ -106,7 +113,7 @@ src/tools/AgentTool/
 └── agentToolUtils.ts       ← 工具名解析和分类
 ```
 
-### 2. 多 Agent 协作架构
+### 多 Agent 协作架构
 
 ```
 src/utils/swarm/
@@ -132,7 +139,7 @@ src/tools/TeamDeleteTool/   ← 团队删除工具
 src/tools/SendMessageTool/  ← 消息传递工具
 ```
 
-### 3. 任务管理架构
+### 任务管理架构
 
 ```
 src/tasks/
@@ -584,4 +591,4 @@ export async function cleanupTeamDirectories(teamName: string): Promise<void> {
 
 ## 下一篇
 
-👉 [09-memory-and-persistence.md](./09-memory-and-persistence.md) — 记忆与持久化
+[09-memory-and-persistence.md](./09-memory-and-persistence.md) — 记忆与持久化

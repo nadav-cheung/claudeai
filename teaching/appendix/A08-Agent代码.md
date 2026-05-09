@@ -1,3 +1,10 @@
+---
+title: "A08 - Agent 系统代码详解"
+description: "深入解析 Claude Code Agent 子代理系统的核心代码，包括 AgentTool.call()、runAgent()、forkSubagent()、团队管理等关键函数的实现。"
+tags: [code, agent, team, fork, subprocess]
+date: 2026-05-09
+---
+
 # A08 - Agent 系统代码详解
 
 > **本文档目标**：深入解析 Claude Code Agent 子代理系统的核心代码，包括 AgentTool.call()、runAgent()、forkSubagent()、团队管理等关键函数的实现。

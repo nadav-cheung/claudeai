@@ -1,4 +1,11 @@
-# 06 - 上下文管理与压缩 (Context Management and Compaction)
+---
+title: "上下文管理与压缩"
+description: "理解 Claude Code 如何管理上下文窗口、压缩触发条件、compact 算法、微压缩、会话记忆压缩等机制。"
+tags: [context, compaction, memory-management]
+date: 2026-05-09
+---
+
+# 06 - 上下文管理与压缩
 
 > **本章目标**：理解 Claude Code 如何管理有限的上下文窗口 (Context Window)，包括消息结构、token 估算、压缩触发条件、compact 算法、微压缩 (MicroCompact)、会话记忆压缩 (Session Memory Compact) 等机制。掌握当对话超出上下文窗口时，系统如何优雅地压缩历史消息而不丢失关键信息。
 
@@ -6,17 +13,17 @@
 
 ## 核心概念
 
-### 1. 上下文窗口 (Context Window)
+### 1. 上下文窗口
 
 Claude 模型有固定的上下文窗口大小（通常 200K token，1M token 模型可用）：
 
-```
-src/utils/context.ts
-├── MODEL_CONTEXT_WINDOW_DEFAULT = 200_000
-├── COMPACT_MAX_OUTPUT_TOKENS = 20_000
-├── getContextWindowForModel(model, betas) — 获取模型的上下文窗口大小
-├── has1mContext(model) — 检查是否启用 1M 上下文
-└── modelSupports1M(model) — 检查模型是否支持 1M 上下文
+```typescript
+// src/utils/context.ts
+MODEL_CONTEXT_WINDOW_DEFAULT = 200_000
+COMPACT_MAX_OUTPUT_TOKENS = 20_000
+getContextWindowForModel(model, betas) // 获取模型的上下文窗口大小
+has1mContext(model) // 检查是否启用 1M 上下文
+modelSupports1m(model) // 检查模型是否支持 1M 上下文
 ```
 
 上下文窗口不是全部可用于历史消息——系统需要预留空间给：
@@ -26,29 +33,30 @@ src/utils/context.ts
 
 ### 2. 消息类型体系
 
-```
-src/utils/messages.ts
-├── UserMessage          — 用户消息（包括 tool_result），来自 @anthropic-ai/sdk
-├── AssistantMessage     — 模型回复（包括 tool_use），来自 @anthropic-ai/sdk
-├── SystemMessage        — 系统消息（包括 compact boundary），来自 @anthropic-ai/sdk
-├── AttachmentMessage    — 附件消息（hook 输出、skill 发现等）
-├── ProgressMessage      — 进度消息
-└── SystemCompactBoundaryMessage — 压缩边界标记
+```typescript
+// src/utils/messages.ts
+UserMessage          // 用户消息（包括 tool_result）
+AssistantMessage     // 模型回复（包括 tool_use）
+SystemMessage        // 系统消息（包括 compact boundary）
+AttachmentMessage    // 附件消息（hook 输出、skill 发现等）
+ProgressMessage      // 进度消息
+SystemCompactBoundaryMessage // 压缩边界标记
 ```
 
 关键设计：`SystemCompactBoundaryMessage` 标记压缩发生的位置，系统只保留边界之后的消息作为有效上下文。
 
 ### 3. 压缩触发条件
 
-```
-src/services/compact/autoCompact.ts
-├── getAutoCompactThreshold(model) — 自动压缩阈值
-├── AUTOCOMPACT_BUFFER_TOKENS = 13_000 — 缓冲区
-├── WARNING_THRESHOLD_BUFFER_TOKENS = 20_000 — 警告阈值
-└── ERROR_THRESHOLD_BUFFER_TOKENS = 20_000 — 错误阈值
+```typescript
+// src/services/compact/autoCompact.ts
+getAutoCompactThreshold(model) // 自动压缩阈值
+AUTOCOMPACT_BUFFER_TOKENS = 13_000 // 缓冲区
+WARNING_THRESHOLD_BUFFER_TOKENS = 20_000 // 警告阈值
+ERROR_THRESHOLD_BUFFER_TOKENS = 20_000 // 错误阈值
 ```
 
 三种压缩触发方式：
+
 1. **自动压缩** — token 使用量超过 `context_window - 13_000` 时自动触发
 2. **手动压缩** — 用户输入 `/compact` 命令
 3. **API 错误触发** — 收到 `prompt_too_long` 错误时强制压缩
@@ -68,11 +76,9 @@ src/services/compact/autoCompact.ts
 
 ## 源码导览
 
-### Token 估算 (tokenEstimation.ts)
+### Token 估算
 
-```
-src/services/tokenEstimation.ts
-```
+`src/services/tokenEstimation.ts`
 
 Token 估算有两个层级：
 
@@ -98,11 +104,9 @@ export async function tokenCountWithEstimation(
 ): Promise<number>
 ```
 
-### 上下文工具函数 (context.ts)
+### 上下文工具函数
 
-```
-src/utils/context.ts
-```
+`src/utils/context.ts`
 
 这个文件管理模型的上下文窗口配置：
 
@@ -117,17 +121,15 @@ export function getContextWindowForModel(model: string, betas?: string[]): numbe
   // 5. 默认 200K
 }
 
-export function modelSupports1M(model: string): boolean {
+export function modelSupports1m(model: string): boolean {
   const canonical = getCanonicalName(model)
   return canonical.includes('claude-sonnet-4') || canonical.includes('opus-4-6')
 }
 ```
 
-### Full Compact 核心 (compact.ts)
+### Full Compact 核心
 
-```
-src/services/compact/compact.ts
-```
+`src/services/compact/compact.ts`
 
 这是压缩系统的核心，约 1500+ 行。主要功能：
 
@@ -159,11 +161,9 @@ compactConversation(messages, toolUseContext, options)
       └─ 压缩后的消息
 ```
 
-#### 消息分组 (grouping.ts)
+#### 消息分组
 
-```
-src/services/compact/grouping.ts — groupMessagesByApiRound()
-```
+`src/services/compact/grouping.ts`
 
 消息按 API 轮次分组（不是按用户轮次），这允许在单轮对话（SDK/CCR 调用）中也能进行细粒度压缩：
 
@@ -175,9 +175,10 @@ API Round 3: [assistant_response]
 
 边界判断：当遇到一个新的 `AssistantMessage` 且其 `message.id` 与前一个不同时，就是新的一轮。
 
-#### 图片剥离 (compact.ts:145)
+#### 图片剥离
 
 ```typescript
+// compact.ts:145
 export function stripImagesFromMessages(messages: Message[]): Message[] {
   // 将图片块替换为 [image] 文本标记
   // 将文档块替换为 [document] 文本标记
@@ -187,13 +188,11 @@ export function stripImagesFromMessages(messages: Message[]): Message[] {
 
 这解决了压缩请求本身可能因包含大量图片而触发 `prompt_too_long` 的问题。
 
-### 压缩提示词 (prompt.ts)
+### 压缩提示词
 
-```
-src/services/compact/prompt.ts
-```
+`src/services/compact/prompt.ts`
 
-压缩提示词由 `getCompactPrompt()` 构建（`src/services/compact/prompt.ts`），包含详细的分析指令和输出格式要求：
+压缩提示词由 `getCompactPrompt()` 构建，包含详细的分析指令和输出格式要求：
 
 ```
 分析指令：
@@ -225,11 +224,9 @@ Prompt 有两个版本：
 
 Partial Compact 用于用户手动选择压缩起点（如 `/compact` 带参数）的场景，比全量压缩更灵活。
 
-### 微压缩 MicroCompact (microCompact.ts)
+### 微压缩 MicroCompact
 
-```
-src/services/compact/microCompact.ts
-```
+`src/services/compact/microCompact.ts`
 
 微压缩是一种轻量级压缩策略，不调用 AI 模型，而是直接清理旧的工具结果：
 
@@ -261,11 +258,9 @@ export type TimeBasedMCConfig = {
 }
 ```
 
-### 会话记忆压缩 (sessionMemoryCompact.ts)
+### 会话记忆压缩
 
-```
-src/services/compact/sessionMemoryCompact.ts
-```
+`src/services/compact/sessionMemoryCompact.ts`
 
 会话记忆压缩是最新的压缩策略，利用 CLAUDE.md 风格的会话记忆文件：
 
@@ -287,11 +282,9 @@ export const DEFAULT_SM_COMPACT_CONFIG = {
 
 优势：不需要调用 AI 模型生成摘要，速度更快且更可靠。
 
-### 自动压缩控制 (autoCompact.ts)
+### 自动压缩控制
 
-```
-src/services/compact/autoCompact.ts
-```
+`src/services/compact/autoCompact.ts`
 
 ```typescript
 // 自动压缩阈值计算
@@ -423,11 +416,12 @@ keep_set = Group 3 + Group 4
 
 ## 关键代码
 
-### 1. Prompt-Too-Long 重试 (compact.ts:243)
+### Prompt-Too-Long 重试
 
 当压缩请求本身也触发 `prompt_too_long` 时，系统会截断最旧的消息：
 
 ```typescript
+// compact.ts:243
 export function truncateHeadForPTLRetry(
   messages: Message[],
   ptlResponse: AssistantMessage,
@@ -453,7 +447,7 @@ export function truncateHeadForPTLRetry(
 }
 ```
 
-### 2. Post-Compact 资源重新注入 (compact.ts:122)
+### Post-Compact 资源重新注入
 
 压缩后，系统需要重新注入一些关键信息：
 
@@ -471,7 +465,7 @@ export const POST_COMPACT_SKILLS_TOKEN_BUDGET = 25_000
 - 已发现的工具列表
 - Skill 列表（有独立的 token 预算）
 
-### 3. 压缩边界标记
+### 压缩边界标记
 
 压缩边界标记 (`SystemCompactBoundaryMessage`) 的作用：
 
@@ -486,12 +480,12 @@ export function isCompactBoundaryMessage(message: Message): boolean
 - 系统只处理边界之后的消息作为有效上下文
 - 防止压缩前的旧消息被再次引用
 
-### 4. Session Memory Compact 的配置同步 (sessionMemoryCompact.ts)
+### Session Memory Compact 的配置同步
 
 ```typescript
 // 从 GrowthBook 获取远程配置
 export async function initializeSessionMemoryCompactConfig(): Promise<void> {
-  if (configInitialized) return  // 只初始化一次
+  if (configInitialized) return // 只初始化一次
 
   const remoteConfig = getFeatureValue_CACHED_MAY_BE_STALE(
     'tengu_session_memory_compact_config',
@@ -507,7 +501,7 @@ export async function initializeSessionMemoryCompactConfig(): Promise<void> {
 
 这允许远程动态调整压缩参数，无需发布新版本。
 
-### 5. 压缩 Hook (compact.ts 引用)
+### 压缩 Hook
 
 压缩过程支持外部 Hook：
 
@@ -524,102 +518,53 @@ import { executePostCompactHooks, executePreCompactHooks } from '../../utils/hoo
 
 ### 练习 1：追踪一次自动压缩
 
-**类比 Java**：这类似于 Hibernate 一级缓存的 flush 策略——当缓存满时触发 flush，清理旧数据。
+目标：理解从 token 超限到压缩完成的完整流程。
 
-**场景**：token 使用量达到 187,000（200K 窗口）
+场景：对话进行中，token 使用量达到 187,000（200K 窗口）。
 
-**答案**：
+步骤：
+1. 阅读 `autoCompact.ts` 中的 `getAutoCompactThreshold()` — 确认阈值计算
+2. 阅读 `calculateTokenWarningState()` — 确认状态判断
+3. 追踪 `autoCompactIfNeeded()` → `compactConversation()` 的调用链
+4. 在 `compact.ts` 中找到 `groupMessagesByApiRound()` 的调用
+5. 追踪摘要消息的生成和 `buildPostCompactMessages()` 的构建
 
-1. **阈值计算**：`200,000 - 13,000 = 187,000` 触发压缩
-
-2. **状态判断**：`percentLeft = 1 - 187000/200000 = 6.5%` < 10%，显示警告
-
-3. **调用链**：`autoCompactIfNeeded()` → `trySessionMemoryCompact()` 或 `compactConversation()`
-
-4. **分组**：`groupMessagesByApiRound()` 将消息按 API 轮次分组
-
-5. **构建**：`buildPostCompactMessages()` 生成压缩后的消息列表
-
-**思考题答案**：
-13,000 buffer 是权衡：
-- **太小**：压缩太频繁，AI 摘要开销大
-- **太大**：接近 limit，API 可能直接拒绝
+思考题：为什么自动压缩的缓冲区是 13,000 token 而不是更大或更小？
 
 ### 练习 2：MicroCompact vs Full Compact
 
-**类比 Java**：这类似于 MyBatis 一级缓存 vs 二级缓存的策略差异。
+目标：理解两种压缩策略的适用场景和实现差异。
 
-**场景分析**：
+1. 阅读 `microCompact.ts` 中的 `estimateMessageTokens()` 和工具结果清理逻辑
+2. 阅读 `compact.ts` 中的 AI 摘要生成逻辑
+3. 对比两种策略在以下场景的效果：
+   - 用户读取了 20 个文件（每个 5000 字符），然后问了一个新问题
+   - 用户进行了长时间对话，话题已经切换了 3 次
 
-| 场景 | MicroCompact | Full Compact |
-|------|-------------|-------------|
-| 读取 20 个文件后问新问题 | 清理旧文件读取结果 | 生成对话摘要 |
-| 话题切换 3 次 | 清理旧的搜索结果 | 理解话题演进 |
-
-**思考题答案**：
-MicroCompact 退化为无效操作的情况：
-- 所有工具结果都已很小（无内容可清理）
-- 用户刚开启新对话（无"旧"结果）
+思考题：MicroCompact 什么时候会退化为无效操作？
 
 ### 练习 3：Session Memory Compact 分析
 
-**答案**：
+目标：理解基于会话记忆的压缩策略。
 
-| 策略 | 优点 | 缺点 |
-|------|------|------|
-| Session Memory | 快（无 AI 调用）、可靠 | 信息可能丢失 |
-| Full Compact | 信息保留完整 | 慢、依赖 AI |
+1. 阅读 `sessionMemoryCompact.ts` 中的 `trySessionMemoryCompaction()`
+2. 分析 `getSessionMemoryContent()` 和 `waitForSessionMemoryExtraction()` 的关系
+3. 对比三种压缩策略的优缺点
 
-**本质区别**：
-- Session Memory：用外部文件替代历史，可能丢失细节
-- Full Compact：用 AI 摘要替代历史，保留结构化信息
+思考题：会话记忆压缩和 AI 摘要压缩在信息保留上有什么本质区别？
 
 ### 练习 4：上下文窗口管理
 
-**答案**：
+目标：理解模型上下文窗口的配置和限制。
 
-1. **配置优先级**：`CLAUDE_CODE_MAX_CONTEXT_TOKENS` > `getModelCapability()` > 默认 200K
+1. 阅读 `context.ts` 中的 `getContextWindowForModel()`
+2. 追踪 `CLAUDE_CODE_DISABLE_1M_CONTEXT` 环境变量的作用
+3. 阅读 `autoCompact.ts` 中的 `getEffectiveContextWindowSize()` — 理解为什么有效窗口小于总窗口
 
-2. **有效窗口 = 总窗口 - 输出预留**（约 180K 用于输入）
-
-3. **预留太小的问题**：
-   - 输出被截断
-   - 响应不完整
-   - API 可能报错
-
-**Java 对比**：
-```java
-// Java 堆内存 vs 上下文窗口
-int maxHeap = Runtime.getRuntime().maxMemory();  // 总堆
-int reserved = 20_000;                          // 预留（类似输出预留）
-int effective = maxHeap - reserved;               // 有效堆
-```
-
----
-
-## 练习答案速查
-
-| 练习 | 核心答案 |
-|------|---------|
-| 1 | buffer 13K = 平衡压缩频率和 API 成功率 |
-| 2 | MicroCompact 无旧内容时无效 |
-| 3 | Session Memory 快但可能丢信息 |
-| 4 | 预留太小 → 输出截断/响应不完整 |
-
----
-
-## 上下文管理 vs Java 缓存
-
-| 方面 | Claude Code | Java |
-|------|-------------|------|
-| 容量管理 | Token 计数 | 字节计数 |
-| 淘汰策略 | 时间 + 阈值 | LRU/LFU |
-| 压缩方式 | AI 摘要/Micro | 无等价 |
-| 持久化 | 会话记忆文件 | 二级缓存 |
-| 刷新 | 自动/手动 | flushMode |
+思考题：如果模型输出 token 预留设得太小，会出现什么问题？
 
 ---
 
 ## 下一篇
 
-👉 [07-mcp-integration.md](./07-mcp-integration.md) — MCP 协议集成
+[07-mcp-integration.md](./07-mcp-integration.md) — MCP 集成

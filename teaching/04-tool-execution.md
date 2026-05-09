@@ -1,12 +1,19 @@
+---
+title: "工具执行与安全"
+description: "深入理解 Claude Code 的工具执行管线，包括从模型发出 tool_use 到最终返回 tool_result 的完整流程、权限检查、沙箱隔离、Hook 钩子、并发控制等安全机制。"
+tags: [tool-execution, sandbox, security, hooks, concurrency]
+date: 2026-05-09
+---
+
 # 04 - 工具执行与安全 (Tool Execution and Security)
 
-> **本章目标**：深入理解 Claude Code 的工具执行管线 (pipeline)，包括从模型发出 tool_use 到最终返回 tool_result 的完整流程。掌握权限检查、沙箱隔离、Hook 钩子、并发控制等安全机制的设计原理和实现细节。
+> **本章目标**：深入理解 Claude Code 的工具执行管线，包括从模型发出 tool_use 到最终返回 tool_result 的完整流程。掌握权限检查、沙箱隔离、Hook 钩子、并发控制等安全机制的设计原理和实现细节。
 
 ---
 
-## 核心概念
+## 1. 核心概念
 
-### 1. 工具执行管线总览
+### 1.1 工具执行管线总览
 
 工具执行是一个多阶段流水线：
 
@@ -15,41 +22,43 @@ tool_use block → 输入校验 → PreToolUse Hooks → 权限检查 → tool.c
 ```
 
 核心文件：
+
 - `src/services/tools/toolExecution.ts` — 主执行管线
 - `src/services/tools/StreamingToolExecutor.ts` — 并发执行调度器
 - `src/services/tools/toolHooks.ts` — Hook 执行与权限决策解析
 
-### 2. 沙箱系统 (Sandbox)
+### 1.2 沙箱系统 (Sandbox)
 
 沙箱是一个 OS 级别的隔离层，用于限制 Bash 命令的文件系统和网络访问：
+
 - 基于 `@anthropic-ai/sandbox-runtime` 包（bubblewrap on Linux, sandbox-exec on macOS）
 - 配置来源于 `settings.json` 中的 `sandbox` 和 `permissions` 字段
 - 不是安全边界，而是便利特性——真正的安全控制是权限提示系统
 
-### 3. Bash 安全检查
+### 1.3 Bash 安全检查
 
 Bash 工具有额外的安全层：
+
 - **破坏性命令检测** — 识别 `rm -rf`、`git push --force` 等危险操作
 - **路径验证** — 确保操作路径在允许的工作目录内
 - **分类器 (Classifier)** — 使用 AI 模型判断命令是否安全
 - **排除命令** — 用户可配置不需要沙箱的命令
 
-### 4. Hook 系统
+### 1.4 Hook 系统
 
 Hook 是用户配置的外部命令，在工具执行前后运行：
+
 - **PreToolUse** — 在工具执行前运行，可以允许/拒绝/修改输入
 - **PostToolUse** — 在工具成功执行后运行
 - **PostToolUseFailure** — 在工具执行失败后运行
 
 ---
 
-## 源码导览
+## 2. 源码导览
 
 ### 入口：runToolUse (toolExecution.ts)
 
-```
-src/services/tools/toolExecution.ts:337 — runToolUse()
-```
+**文件**：`src/services/tools/toolExecution.ts:337` — `runToolUse()`
 
 这是工具执行的统一入口。它接收一个 `ToolUseBlock`（来自模型的 tool_use content block），执行以下步骤：
 
@@ -103,9 +112,7 @@ const result = cached ? await cached : await classifyBashCommand(...)
 
 ### 并发执行器：StreamingToolExecutor
 
-```
-src/services/tools/StreamingToolExecutor.ts:40 — StreamingToolExecutor class
-```
+**文件**：`src/services/tools/StreamingToolExecutor.ts:40` — `StreamingToolExecutor class`
 
 模型可以在一个 response 中发出多个 tool_use block。StreamingToolExecutor 管理这些工具的并发执行：
 
@@ -115,6 +122,7 @@ src/services/tools/StreamingToolExecutor.ts:40 — StreamingToolExecutor class
 - **结果按序返回** — 即使工具并行执行，结果仍按模型发出的顺序 yield
 
 关键设计决策：
+
 ```typescript
 // 只有 Bash 错误会取消兄弟工具
 // Bash 命令通常有隐式依赖链（如 mkdir 失败 → 后续命令无意义）
@@ -142,9 +150,7 @@ if (tool.block.name === BASH_TOOL_NAME) {
 
 #### 权限决策解析：resolveHookPermissionDecision
 
-```
-src/services/tools/toolHooks.ts:332 — resolveHookPermissionDecision()
-```
+**文件**：`src/services/tools/toolHooks.ts:332` — `resolveHookPermissionDecision()`
 
 这个函数是 Hook 与权限系统的桥梁，封装了一个关键不变量：
 
@@ -161,7 +167,7 @@ hook ask → 正常权限流程（带 hook 的消息）
 
 ---
 
-## 数据流图
+## 3. 数据流图
 
 ### 工具执行完整流程
 
@@ -230,7 +236,7 @@ hook ask → 正常权限流程（带 hook 的消息）
   (safe)(safe)(unsafe)
     │    │    │
     ▼    ▼    │
-  执行  执行  │ ← 等待 unsafe 工具
+  执行  执行   │
     │    │    │
     ▼    ▼    ▼
   完成  完成  执行
@@ -241,9 +247,9 @@ hook ask → 正常权限流程（带 hook 的消息）
 
 ---
 
-## 关键代码
+## 4. 关键代码
 
-### 1. 输入校验的双重防护 (toolExecution.ts:615-733)
+### 4.1 输入校验的双重防护 (toolExecution.ts:615-733)
 
 ```typescript
 // 第一层：Zod schema 校验（类型安全）
@@ -259,7 +265,7 @@ if (isValidCall?.result === false) {
 }
 ```
 
-### 2. 沙箱决策 (shouldUseSandbox.ts)
+### 4.2 沙箱决策 (shouldUseSandbox.ts)
 
 ```typescript
 // src/tools/BashTool/shouldUseSandbox.ts:130
@@ -279,11 +285,12 @@ export function shouldUseSandbox(input: Partial<SandboxInput>): boolean {
 ```
 
 `containsExcludedCommand()` 的匹配逻辑：
+
 - 将复合命令（`&&` 分隔）拆分为子命令
 - 对每个子命令进行不动点迭代：去除环境变量前缀 → 去除安全包装器 → 生成所有候选
 - 对每个候选匹配 prefix/exact/wildcard 三种规则模式
 
-### 3. 沙箱配置转换 (sandbox-adapter.ts:172)
+### 4.3 沙箱配置转换 (sandbox-adapter.ts:172)
 
 `convertToSandboxRuntimeConfig()` 将 Claude Code 的设置转换为 sandbox-runtime 的配置：
 
@@ -292,7 +299,7 @@ export function shouldUseSandbox(input: Partial<SandboxInput>): boolean {
 - **安全防护** — 始终拒绝写入 `settings.json`、`.claude/skills` 等关键文件
 - **Git 裸仓库防护** — 阻止在 cwd 根目录创建伪造的 Git 裸仓库文件（HEAD/objects/refs）
 
-### 4. 错误分类 (toolExecution.ts:150)
+### 4.4 错误分类 (toolExecution.ts:150)
 
 `classifyToolError()` 将工具执行错误分类为遥测安全的字符串：
 
@@ -310,7 +317,7 @@ export function classifyToolError(error: unknown): string {
 }
 ```
 
-### 5. PostToolUse Hook 的 MCP 工具输出修改 (toolHooks.ts:146)
+### 4.5 PostToolUse Hook 的 MCP 工具输出修改 (toolHooks.ts:146)
 
 ```typescript
 // 如果 hook 返回了 updatedMCPToolOutput，且这是 MCP 工具，则更新输出
@@ -324,190 +331,50 @@ if (result.updatedMCPToolOutput && isMcpTool(tool)) {
 
 ---
 
-## 练习
+## 5. 练习
 
 ### 练习 1：追踪一次 Bash 工具调用
 
-**目标**：理解从模型发出 `Bash(command: "ls -la")` 到返回结果的完整路径。
+目标：理解从模型发出 `Bash(command: "ls -la")` 到返回结果的完整路径。
 
-**类比 Java**：这类似于 Spring MVC 中一个请求的处理链路——`DispatcherServlet` → `HandlerMapping` → `HandlerAdapter` → `Controller` → `Service` → `DAO`。
+步骤：
 
-**步骤**：
 1. 从 `runToolUse()` (toolExecution.ts:337) 开始
 2. 追踪到 `checkPermissionsAndCallTool()` (toolExecution.ts:599)
-3. 找到 Bash 分类器预启动的位置 (约 L740)
-4. 找到 `tool.call()` 的调用点 (约 L1207)
+3. 找到 Bash 分类器预启动的位置（约 L740）
+4. 找到 `tool.call()` 的调用点（约 L1207）
 5. 查看 BashTool 的 `call()` 方法如何使用沙箱
 
-**思考题答案**：
-Bash 分类器"投机性"提前启动的原因：
-1. **延迟隐藏**：I/O 密集型操作（读文件、运行规则）可以隐藏在工具执行早期阶段
-2. **auto 模式性能**：在 `auto` 模式下，分类器结果直接影响权限决策，提前算好可让权限判断几乎零延迟
-3. **异步缓存**：`startSpeculativeClassifierCheck` 把 Promise 存入 Map，`consumeSpeculativeClassifierCheck` 消费——如果已算好就直接用
+思考题：为什么 Bash 分类器要"投机性"地提前启动，而不是等权限检查时再启动？
 
 ### 练习 2：分析并发执行场景
 
-**目标**：理解 StreamingToolExecutor 的并发控制逻辑。
+目标：理解 StreamingToolExecutor 的并发控制逻辑。
 
-**类比 Java**：这类似于 Java 的 `CompletableFuture` 并发执行——多个任务可以并行执行，但某些有依赖关系的任务需要串行。
+场景：模型同时发出三个 tool_use：
 
-**场景**：
 - `Read(file_path="a.ts")` — isConcurrencySafe = true
 - `Bash(command="npm test")` — isConcurrencySafe = false
 - `Read(file_path="b.ts")` — isConcurrencySafe = true
 
-**步骤**：
+步骤：
+
 1. 阅读 `addTool()` 方法，理解 `isConcurrencySafe` 的判断
 2. 阅读 `canExecuteTool()` 方法，理解并发条件
 3. 阅读 `executeTool()` 中的错误传播逻辑
 4. 如果 `npm test` 失败，其他两个工具会怎样？
 
-**答案**：只有 Bash 错误会触发兄弟取消（sibling abort）。原因：
-- Bash 命令通常有隐式依赖链（`mkdir` 失败 → 后续 `cd` 无意义）
-- Read/WebFetch 等独立工具的错误不会影响其他工具
-
-**Java 对比**：
-```java
-// Java CompletableFuture 并发执行
-CompletableFuture.allOf(
-    readFileFuture,    // Read - 独立
-    runBashFuture,    // Bash - 可能失败
-    readFileFuture2    // Read - 独立
-).exceptionally(e -> {
-    // 如果 Bash 失败，是否取消其他任务？
-    // Claude Code 选择：是
-    // Java 开发者可选择：否
-    return null;
-});
-```
+思考题：为什么只有 Bash 错误会触发兄弟取消，而 Read/Write 错误不会？
 
 ### 练习 3：Hook 权限决策的优先级
 
-**目标**：理解 Hook 和规则系统的交互。
+目标：理解 Hook 和规则系统的交互。
 
-**类比 Java**：这类似于 Spring Security 的 `AccessDecisionVoter` 链——多个投票器按优先级决定访问权限。
+阅读 `resolveHookPermissionDecision()` (toolHooks.ts:332)，回答：
 
-**问题答案**：
-
-1. **Hook allow + deny 规则**
-   - 结果：**deny 规则优先**
-   - Hook 不能绕过 settings.json 的 deny 规则（安全不变量）
-
-2. **Hook allow + updatedInput + requiresUserInteraction**
-   - 行为：`updatedInput` 会被应用，但对话框仍会显示
-   - Hook 可以修改输入但不能跳过用户确认
-
-3. **Hook ask**
-   - 对话框显示 Hook 提供的消息 + 原始工具调用的上下文
-   - 用户可选择 Allow/Deny/Cancel
-
-**Java 类比**：
-```java
-// Spring Security AccessDecisionManager
-public void decide(Authentication auth, Object obj, Collection<ConfigAttribute> attrs) {
-    for (AccessDecisionVoter voter : voters) {
-        int result = voter.vote(auth, obj, attrs);
-        switch (result) {
-            case ACCESS_DENIED:
-                throw new AccessDeniedException("denied");
-            // ... 其他处理
-        }
-    }
-}
-
-// Claude Code 的 resolveHookPermissionDecision 类似
-// 但优先级是：deny > ask > allow（而非票数多数决）
-
----
-
-### 练习 4：理解错误分类与重试
-
-**目标**：理解 `classifyToolError()` 的作用以及哪些错误可以重试。
-
-**场景**：网络抖动导致 API 请求失败，哪些情况应该重试？
-
-**答案**：
-
-| 错误类型 | 可重试 | 原因 |
-|---------|--------|------|
-| `Error:ETIMEDOUT` | ✅ | 临时网络问题 |
-| `Error:ECONNRESET` | ✅ | 连接被重置，可能恢复 |
-| `Error:EACCES` | ❌ | 权限问题，重试无效 |
-| `Error:ENOENT` | ❌ | 文件不存在，重试无效 |
-
-**代码路径**：
-```typescript
-// toolExecution.ts
-function classifyToolError(error: unknown): string {
-  if (error instanceof TelemetrySafeError) return error.telemetryMessage
-  if (error instanceof Error) {
-    const errnoCode = getErrnoCode(error)
-    if (typeof errnoCode === 'string') return `Error:${errnoCode}`
-  }
-  return 'UnknownError'
-}
-```
-
-**Java 对比**：类似于 Java 的异常类型层次，`IOException` 可重试，`SecurityException` 不可重试。
-
----
-
-### 练习 5：StreamingToolExecutor 的锁机制
-
-**目标**：理解 StreamingToolExecutor 如何实现工具的并发控制。
-
-**类比 Java**：类似于 `ReentrantLock` 的条件锁——同一时刻只允许一定数量的同类操作。
-
-**问题**：如果设置 `maxConcurrent = 2`，以下场景如何执行？
-
-```
-Tool A (Read)
-Tool B (Read) 
-Tool C (Bash)
-Tool D (Read)
-```
-
-**答案**：
-
-执行顺序：
-1. A (Read) - 获取 Read 锁
-2. B (Read) - Read 锁已被 A 占用，但 Read 可并发，maxConcurrent=2 允许
-3. C (Bash) - 获取 Bash 锁，maxConcurrent=2 还剩一个名额
-4. D (Read) - 必须等 A 或 B 释放 Read 锁
-
-**锁机制**：
-```typescript
-// 同一个 tool.name 互斥
-// 不同 Read 工具共享 Read 锁
-// maxConcurrent 限制总并发数
-```
-
-**Java 对比**：
-```java
-// Semaphore 控制总并发
-Semaphore sem = new Semaphore(2);
-
-// Read 操作
-sem.acquire();
-try { /* 读文件 */ } finally { sem.release(); }
-
-// Bash 操作
-sem.acquire();
-try { /* 执行命令 */ } finally { sem.release(); }
-```
-```
-
----
-
-## 练习答案速查
-
-| 练习 | 核心答案 |
-|------|---------|
-| 1 | 分类器提前启动 = 延迟隐藏 + 异步缓存 |
-| 2 | 只有 Bash 错误取消兄弟（隐式依赖链） |
-| 3 | deny 规则 > Hook allow（安全不变量） |
-| 4 | ETIMEDOUT/ECONNRESET 可重试，EACCES/ENOENT 不可 |
-| 5 | 同一 tool.name 互斥，Read 可并发，maxConcurrent 限制总数 |
+1. 如果 Hook 返回 `allow`，但 settings.json 中有 deny 规则，最终结果是什么？
+2. 如果 Hook 返回 `allow` 且提供了 `updatedInput`，`requiresUserInteraction` 的工具有什么特殊行为？
+3. 如果 Hook 返回 `ask`，权限对话框会显示什么消息？
 
 ---
 

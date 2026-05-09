@@ -1,3 +1,10 @@
+---
+title: "A13 - TypeScript 实战技巧"
+description: "为 Java 开发者提供 TypeScript 实战技巧，涵盖从 Java 迁移到 TypeScript 的常见模式、类型系统最佳实践、异步编程等。"
+tags: [code, typescript, java, migration]
+date: 2026-05-09
+---
+
 # A13 - TypeScript 实战技巧
 
 > **本附录目标**：为 Java 开发者提供 TypeScript 实战技巧，涵盖从 Java 迁移到 TypeScript 的常见模式、类型系统最佳实践、异步编程、以及如何在实际项目中应用 Claude Code 的架构思想。

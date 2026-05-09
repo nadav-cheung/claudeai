@@ -1,4 +1,11 @@
-# 09 - 记忆与持久化 (Memory and Persistence)
+---
+title: "记忆与持久化"
+description: "理解 Claude Code 中会话持久化、CLAUDE.md 指令加载、记忆文件系统、自动记忆提取、会话恢复和设置同步的完整机制。"
+tags: [memory, persistence, claude-md, session]
+date: 2026-05-09
+---
+
+# 09 - 记忆与持久化
 
 > **本章目标**：理解 Claude Code 中会话持久化、CLAUDE.md 指令加载、记忆文件系统、自动记忆提取、会话恢复和设置同步的完整机制。
 
@@ -89,7 +96,7 @@ export const MEMORY_TYPE_VALUES = [
 
 ## 源码导览
 
-### 1. 会话存储架构
+### 会话存储架构
 
 ```
 src/utils/sessionStorage.ts
@@ -117,7 +124,7 @@ src/hooks/                    ← 钩子系统（记忆相关）
 src/memdir/                   ← 记忆目录管理
 ```
 
-### 2. 会话 JSONL 格式
+### 会话 JSONL 格式
 
 会话以 JSONL (JSON Lines) 格式存储在 `~/.claude/projects/<path>/sessions/<session-id>.jsonl`：
 
@@ -367,6 +374,7 @@ const MAX_MEMORY_CHARACTER_COUNT = 40000  // 单文件最大字符数
 ```
 
 支持的文本文件扩展名（防止加载二进制文件）：
+
 ```typescript
 const TEXT_FILE_EXTENSIONS = new Set([
   '.md', '.txt', '.text',
@@ -411,6 +419,7 @@ export function shouldExtractMemory(messages: Message[]): boolean {
 ```
 
 工具权限限制——只允许编辑记忆文件：
+
 ```typescript
 export function createMemoryFileCanUseTool(memoryPath: string): CanUseToolFn {
   return async (tool, input) => {
@@ -448,6 +457,7 @@ function opener(newMessageCount, existingMemories): string {
 ```
 
 工具白名单（严格限制）：
+
 ```typescript
 const ALLOWED_TOOLS = new Set([
   FILE_READ_TOOL_NAME,      // 读取文件
@@ -646,4 +656,4 @@ class Message {
 
 ## 下一篇
 
-👉 [10-skills-and-plugins.md](./10-skills-and-plugins.md) — Skills 与插件系统
+[10-skills-and-plugins.md](./10-skills-and-plugins.md) — Skills 与插件系统

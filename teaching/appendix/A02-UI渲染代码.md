@@ -1,3 +1,10 @@
+---
+title: "A02 - UI 渲染代码详解"
+description: "深入解析 Claude Code Ink 终端 UI 渲染系统的核心代码，包括自定义 Reconciler、Yoga 布局、渲染管线等。"
+tags: [code, ui, ink, yoga, terminal]
+date: 2026-05-09
+---
+
 # A02 - UI 渲染代码详解
 
 > **本文档目标**：深入解析 Claude Code Ink 终端 UI 渲染系统的核心代码，包括自定义 Reconciler、Yoga 布局、渲染管线等。

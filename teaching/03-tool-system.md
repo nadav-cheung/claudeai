@@ -1,3 +1,10 @@
+---
+title: "工具系统"
+description: "理解 Claude Code 工具系统的完整架构——从 Tool 接口定义、30+ 工具的注册机制、工具 prompt 设计，到具体工具的实现。"
+tags: [tools, tool-system, tool-interface, tool-registration]
+date: 2026-05-09
+---
+
 # 03 - 工具系统
 
 > **本章目标**：理解 Claude Code 工具系统的完整架构——从 `Tool` 接口定义、30+ 工具的注册机制、工具 prompt 设计，到具体工具（Bash、FileEdit、Agent）的实现。
@@ -12,7 +19,7 @@ Claude Code 的工具是模型与外部世界交互的唯一通道。每当 Clau
 
 | 工具名 | 文件路径 | 条件 |
 |--------|---------|------|
-| **核心工具** |||
+| **核心工具** | | |
 | AgentTool | `tools/AgentTool/` | 默认 |
 | TaskOutputTool | `tools/TaskOutputTool/` | 默认 |
 | BashTool | `tools/BashTool/` | 默认 |
@@ -60,7 +67,7 @@ Claude Code 的工具是模型与外部世界交互的唯一通道。每当 Clau
 | ListMcpResourcesTool | `tools/ListMcpResourcesTool/` | 默认 |
 | ReadMcpResourceTool | `tools/ReadMcpResourceTool/` | 默认 |
 | ToolSearchTool | `tools/ToolSearchTool/` | 乐观检查 |
-| **动态工具** |||
+| **动态工具** | | |
 | MCPTool | `tools/MCPTool/` | 运行时来自 MCP 服务器 |
 
 注：部分工具通过 Feature Flag 条件加载（`feature('XXX')`），默认不启用。
@@ -88,7 +95,7 @@ BashTool.call(input, context)
 
 ## 2. Tool 接口定义
 
-文件：`src/Tool.ts:362-530+`
+**文件**：`src/Tool.ts:362-530+`
 
 ### 2.1 核心接口
 
@@ -173,7 +180,7 @@ type ToolResult<T> = {
 
 ## 3. 工具注册表
 
-文件：`src/tools.ts`
+**文件**：`src/tools.ts`
 
 ### 3.1 getAllBaseTools()
 
@@ -195,7 +202,7 @@ export function getAllBaseTools(): Tools {
     WebFetchTool,        // 网页抓取
     TodoWriteTool,       // 任务列表
     WebSearchTool,       // 网页搜索
-    TaskStopTool,        // 停止任务
+    TaskStopTool,       // 停止任务
     AskUserQuestionTool, // 询问用户
     SkillTool,           // 技能调用
     EnterPlanModeTool,   // 进入计划模式
@@ -249,7 +256,7 @@ export function assembleToolPool(permissionContext, mcpTools): Tools {
 
 ### 4.1 BashTool 的 prompt
 
-文件：`src/tools/BashTool/prompt.ts`
+**文件**：`src/tools/BashTool/prompt.ts`
 
 ```
 Executes a given bash command and returns its output.
@@ -261,6 +268,7 @@ Executes a given bash command and returns its output.
 ```
 
 Prompt 设计原则：
+
 - **简洁但完整**：描述功能、限制、注意事项
 - **安全引导**：提醒模型避免危险操作
 - **行为约束**：说明超时、沙箱等限制
@@ -280,6 +288,7 @@ Performs exact string replacements in files.
 ### 4.3 Prompt Cache 稳定性
 
 工具 prompt 的顺序和内容直接影响 Anthropic API 的**提示缓存**命中率。因此：
+
 - 工具按名称排序
 - prompt 内容在不同用户间保持一致
 - MCP 工具排在内置工具后面
@@ -290,7 +299,7 @@ Performs exact string replacements in files.
 
 ### 5.1 BashTool — 最复杂的工具
 
-文件：`src/tools/BashTool/`
+**文件**：`src/tools/BashTool/`
 
 ```
 BashTool/
@@ -328,13 +337,14 @@ call(input, context)
 ```
 
 **命令分类**（用于 UI 折叠显示）：
+
 - `BASH_SEARCH_COMMANDS` — grep, rg, find 等（标记为搜索操作）
 - `BASH_READ_COMMANDS` — cat, head, tail 等（标记为读取操作）
 - `BASH_LIST_COMMANDS` — ls, tree, du 等（标记为列表操作）
 
 ### 5.2 FileEditTool — 精确编辑
 
-文件：`src/tools/FileEditTool/`
+**文件**：`src/tools/FileEditTool/`
 
 ```typescript
 // 输入 schema
@@ -357,7 +367,7 @@ call(input) {
 
 ### 5.3 AgentTool — 子 Agent 调度
 
-文件：`src/tools/AgentTool/`
+**文件**：`src/tools/AgentTool/`
 
 这是最复杂的工具之一，支持**多 Agent 协作**：
 
@@ -369,17 +379,17 @@ AgentTool/
 ├── resumeAgent.ts      ← 恢复已有 Agent
 ├── loadAgentsDir.ts    ← 加载 Agent 定义
 ├── builtInAgents.ts    ← 内置 Agent 定义
-├── agentMemory.ts      ← Agent 记忆
+├── agentMemory.ts     ← Agent 记忆
 ├── agentDisplay.ts     ← Agent 显示
 ├── agentColorManager.ts ← Agent 颜色管理
-└── prompt.ts           ← 模型描述
+└── prompt.ts          ← 模型描述
 ```
 
 ---
 
 ## 6. 工具执行引擎
 
-文件：`src/services/tools/`
+**文件**：`src/services/tools/`
 
 ### 6.1 执行流程
 
@@ -399,7 +409,7 @@ toolExecution.ts
 
 ### 6.2 StreamingToolExecutor
 
-文件：`src/services/tools/StreamingToolExecutor.ts`
+**文件**：`src/services/tools/StreamingToolExecutor.ts`
 
 支持**流式输出**的工具执行器——工具在执行过程中可以逐步向用户显示进度：
 
@@ -413,9 +423,10 @@ StreamingToolExecutor
 
 ### 6.3 工具 Hooks
 
-文件：`src/services/tools/toolHooks.ts`
+**文件**：`src/services/tools/toolHooks.ts`
 
 在工具执行前后运行的钩子系统：
+
 - **PreToolUse hooks** — 在工具调用前执行（可拒绝/修改）
 - **PostToolUse hooks** — 在工具调用后执行（可修改结果）
 

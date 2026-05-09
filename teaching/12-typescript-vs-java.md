@@ -1,3 +1,10 @@
+---
+title: "TypeScript 与 Java：架构思想对比"
+description: "通过 TypeScript 与 Java 的架构模式对比，帮助 Java 开发者快速建立 Claude Code 的架构思维模型。"
+tags: [typescript, java, comparison, architecture]
+date: 2026-05-09
+---
+
 # 12 - TypeScript 与 Java：架构思想对比
 
 > **本章目标**：通过 TypeScript 与 Java 的架构模式对比，帮助 Java 开发者快速建立 Claude Code 的架构思维模型。理解 TypeScript 的类型系统、异步模式、响应式编程如何在实际项目中落地，以及 Java 开发者如何将这些思想迁移到自己的代码中。

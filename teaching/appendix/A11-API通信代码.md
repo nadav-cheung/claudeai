@@ -1,3 +1,10 @@
+---
+title: "A11 - API 通信代码详解"
+description: "深入解析 Claude Code 与 Anthropic API 通信的核心代码，包括消息流创建、流式响应处理、认证、重试策略等。"
+tags: [code, api, authentication, streaming, retry]
+date: 2026-05-09
+---
+
 # A11 - API 通信代码详解
 
 > **本文档目标**：深入解析 Claude Code 与 Anthropic API 通信的核心代码，包括消息流创建、流式响应处理、认证、重试策略等。

@@ -1,3 +1,10 @@
+---
+title: "快速入门：Java开发者视角"
+description: "帮助Java开发者用已有的知识快速理解Claude Code的核心概念，通过类比Spring/Hibernate/MyBatis等熟悉的技术。"
+tags: [quick-start, java, learning-path]
+date: 2026-05-09
+---
+
 # 快速入门：Java开发者视角的Claude Code学习路径
 
 > **本指南目标**：帮助Java开发者用已有的知识快速理解Claude Code的核心概念。通过类比Spring/Hibernate/MyBatis等熟悉的技术，让你在30分钟内建立整体架构直觉。

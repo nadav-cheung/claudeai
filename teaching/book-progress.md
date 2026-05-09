@@ -1,3 +1,10 @@
+---
+title: "书籍进度记录"
+description: "记录 Claude 编程思想系列书籍的编写进度，包括面向 Java 开发者的架构对比篇和面向零基础开发者的实战篇。"
+tags: [progress, books, documentation]
+date: 2026-05-09
+---
+
 # Claude编程思想 - 书籍进度记录
 
 ## 双书籍架构

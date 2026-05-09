@@ -1,10 +1,17 @@
+---
+title: "API 通信与远程"
+description: "理解 Claude Code 如何与 Anthropic API 通信、认证流程、远程会话机制，以及 Bridge 模式的工作原理。"
+tags: [api, authentication, remote, bridge, websocket]
+date: 2026-05-09
+---
+
 # 11 - API 通信与远程
 
 > **本章目标**：理解 Claude Code 如何与 Anthropic API 通信、认证流程、远程会话机制，以及 Bridge 模式的工作原理。
 
 ---
 
-## 1. 通信架构总览
+## 通信架构总览
 
 Claude Code 的通信分为多个层次：
 
@@ -38,9 +45,9 @@ Claude Code CLI
 
 ---
 
-## 2. Anthropic API 调用流程
+## Anthropic API 调用流程
 
-### 2.1 核心文件：`src/services/api/claude.ts`
+### 核心文件：`src/services/api/claude.ts`
 
 这是与 Anthropic API 交互的核心模块，负责构建请求并处理流式响应。
 
@@ -72,7 +79,7 @@ claude.ts → createMessageStream()
         └── usage 块 → 费用追踪
 ```
 
-### 2.2 消息标准化
+### 消息标准化
 
 ```typescript
 normalizeMessagesForAPI(messages)
@@ -84,7 +91,7 @@ normalizeMessagesForAPI(messages)
   └── 返回 API 兼容的消息列表
 ```
 
-### 2.3 工具 Schema 转换
+### 工具 Schema 转换
 
 ```typescript
 toolToAPISchema(tool)
@@ -94,7 +101,7 @@ toolToAPISchema(tool)
   └── 返回 Anthropic API 格式的工具定义
 ```
 
-### 2.4 Prompt Cache 优化
+### Prompt Cache 优化
 
 Claude Code 对 prompt cache 做了大量优化：
 
@@ -113,9 +120,9 @@ System Prompt 分层
 
 ---
 
-## 3. 认证系统
+## 认证系统
 
-### 3.1 支持的认证方式
+### 支持的认证方式
 
 | 方式 | 配置 | 用途 |
 |------|------|------|
@@ -124,7 +131,7 @@ System Prompt 分层
 | Bedrock | `CLAUDE_CODE_USE_BEDROCK` | AWS 用户 |
 | Vertex | `CLAUDE_CODE_USE_VERTEX` | GCP 用户 |
 
-### 3.2 OAuth 流程
+### OAuth 流程
 
 文件：`src/services/oauth/client.ts`
 
@@ -152,7 +159,7 @@ OAuth 认证流程
         └── checkAndRefreshOAuthTokenIfNeeded()
 ```
 
-### 3.3 API Key 管理
+### API Key 管理
 
 ```
 API Key 存储优先级
@@ -163,9 +170,9 @@ API Key 存储优先级
 
 ---
 
-## 4. 云服务提供商支持
+## 云服务提供商支持
 
-### 4.1 AWS Bedrock
+### AWS Bedrock
 
 ```
 配置
@@ -177,7 +184,7 @@ API 调用
   └── Anthropic SDK 自动路由到 Bedrock endpoint
 ```
 
-### 4.2 Google Vertex AI
+### Google Vertex AI
 
 ```
 配置
@@ -191,9 +198,9 @@ API 调用
 
 ---
 
-## 5. 远程会话
+## 远程会话
 
-### 5.1 RemoteSessionManager
+### RemoteSessionManager
 
 文件：`src/remote/RemoteSessionManager.ts`
 
@@ -208,7 +215,7 @@ API 调用
   │ ←──渲染输出──              │
 ```
 
-### 5.2 Teleport 功能
+### Teleport 功能
 
 Teleport 允许将本地会话"传送"到远程机器：
 
@@ -223,9 +230,9 @@ Teleport 流程
 
 ---
 
-## 6. Bridge 模式
+## Bridge 模式
 
-### 6.1 架构
+### 架构
 
 Bridge 模式用于 IDE 集成（VS Code、JetBrains 等），让 IDE 作为前端，CLI 作为后端：
 
@@ -246,7 +253,7 @@ Claude Code CLI (后端)
 Anthropic API
 ```
 
-### 6.2 Bridge 消息协议
+### Bridge 消息协议
 
 ```
 消息类型
@@ -259,7 +266,7 @@ Anthropic API
   └── status_update    ← 状态更新
 ```
 
-### 6.3 Bridge 生命周期
+### Bridge 生命周期
 
 ```
 bridgeMain.ts
@@ -282,7 +289,7 @@ bridgeMain.ts
 
 ---
 
-## 7. Direct Connect
+## Direct Connect
 
 文件：`src/server/`
 
@@ -309,7 +316,7 @@ createDirectConnectSession.ts
 
 ---
 
-## 8. SSH 远程会话
+## SSH 远程会话
 
 文件：`src/hooks/useSSHSession.ts`, `src/ssh/`
 
@@ -336,9 +343,9 @@ SSH 会话支持：
 
 ---
 
-## 9. API 错误处理与重试
+## API 错误处理与重试
 
-### 9.1 重试策略
+### 重试策略
 
 文件：`src/services/api/withRetry.ts`
 
@@ -350,7 +357,7 @@ SSH 会话支持：
   └── 其他错误 → 不重试，抛出
 ```
 
-### 9.2 错误类型
+### 错误类型
 
 文件：`src/services/api/errors.ts`
 
@@ -362,7 +369,7 @@ SSH 会话支持：
 | OverloadedError | 重试 |
 | NetworkError | 重试 + 离线提示 |
 
-### 9.3 速率限制
+### 速率限制
 
 ```
 速率限制处理
@@ -374,7 +381,7 @@ SSH 会话支持：
 
 ---
 
-## 10. 数据流：完整请求链路
+## 数据流：完整请求链路
 
 ```
 用户输入 "帮我修复 bug"
@@ -405,9 +412,9 @@ Anthropic API Server
 
 ---
 
-## 11. 关键代码
+## 关键代码
 
-### 11.1 API 调用核心流程
+### API 调用核心流程
 
 ```typescript
 // src/services/api/claude.ts:100
@@ -438,7 +445,7 @@ export async function* createMessageStream(params: CreateMessageParams) {
 }
 ```
 
-### 11.2 消息标准化
+### 消息标准化
 
 ```typescript
 // src/services/api/claude.ts:50
@@ -457,7 +464,7 @@ function isAPISendable(message: Message): boolean {
 }
 ```
 
-### 11.3 重试策略
+### 重试策略
 
 ```typescript
 // src/services/api/withRetry.ts:30
@@ -482,7 +489,7 @@ export async function withRetry<T>(
 }
 ```
 
-### 11.4 OAuth 认证流程
+### OAuth 认证流程
 
 ```typescript
 // src/services/oauth/client.ts:50
@@ -502,7 +509,7 @@ export async function authenticateWithOAuth(): Promise<OAuthTokens> {
 }
 ```
 
-### 11.5 API 错误类型
+### API 错误类型
 
 ```typescript
 // src/services/api/errors.ts:30
@@ -538,7 +545,7 @@ export class PromptTooLongError extends APIError {
 
 ---
 
-## 12. 关键文件索引
+## 关键文件索引
 
 | 文件 | 作用 |
 |------|------|
@@ -560,159 +567,7 @@ export class PromptTooLongError extends APIError {
 
 ## 练习
 
-### 练习 1：API 调用链
-
-**类比 Java**：这类似于 Spring 的 `RestTemplate` 或 `WebClient` 发送 HTTP 请求。
-
-**答案**：
-
-完整 API 调用链路：
-```
-用户输入 → REPL.tsx → createUserMessage()
-  → query.ts → createMessageStream()
-  → normalizeMessagesForAPI() → buildSystemPrompt()
-  → toolToAPISchema() → Anthropic SDK
-  → POST /v1/messages (streaming)
-  → 流式响应 → text/tool_use/usage 事件
-```
-
-**Java 对比**：
-```java
-// Spring RestTemplate
-restTemplate.postForEntity(url, request, Response.class);
-// WebClient (reactive)
-webClient.post()
-    .bodyValue(request)
-    .retrieve()
-    .bodyToFlux(Response.class);
-```
-
-### 练习 2：OAuth 流程
-
-**答案**：
-
-OAuth PKCE 流程：
-
-| 步骤 | Claude Code | Java Spring |
-|------|-----------|-------------|
-| 1. 生成 verifier | `code_verifier = randomString()` | `@Bean` generated |
-| 2. 生成 challenge | `SHA256(verifier)` | `Spring Security OAuth2` |
-| 3. 授权 URL | `buildAuthUrl()` | `AuthorizationRequest` |
-| 4. 回调接收 | `localhost:port/callback` | `@GetMapping("/callback")` |
-| 5. Token 交换 | `exchangeCodeForToken()` | `AuthorizationCodeTokenResponseClient` |
-| 6. Token 刷新 | `checkAndRefreshOAuthTokenIfNeeded()` | `OAuth2AuthorizedClientService` |
-
-### 练习 3：Bridge 消息
-
-**答案**：
-
-Bridge 消息类型：
-
-| 消息类型 | 方向 | Java 类比 |
-|---------|------|----------|
-| `user_message` | IDE → CLI | HTTP Request |
-| `assistant_message` | CLI → IDE | HTTP Response |
-| `tool_use` | CLI → IDE | Controller event |
-| `tool_result` | IDE → CLI | Service result callback |
-| `permission_request` | CLI → IDE | `@PreAuthorize` 拦截 |
-| `permission_response` | IDE → CLI | Security context |
-
-### 练习 4：错误处理
-
-**答案**：
-
-重试策略对比：
-
-| 错误类型 | Claude Code | Java Resilience4j |
-|---------|------------|-------------------|
-| 429 Rate Limit | 指数退避重试 | `@Retryable(maxAttempts)` |
-| 500 Server Error | 重试 | `@Retryable` |
-| 503 Unavailable | 重试 | `@CircuitBreaker` |
-| 其他错误 | 不重试 | `@Retryable` |
-
----
-
-### 练习 5：Direct Connect vs SSH 远程会话
-
-**目标**：理解 Direct Connect 和 SSH 远程会话的区别。
-
-**场景**：用户在本地 Mac 上，想连接远程 Linux 服务器上的 Claude Code，应该用哪种方式？
-
-**答案**：
-
-| 方面 | Direct Connect | SSH 远程会话 |
-|------|---------------|-------------|
-| 连接方向 | CLI → 服务器 | 服务器 → CLI |
-| 配置 | `cc:// URL` | SSH 配置 |
-| 延迟 | 较低 | 取决于网络 |
-| 适用场景 | 内网穿透 | 通用 |
-
-**Direct Connect 流程**：
-```
-本地 Claude Code
-    ↓
-解析 cc:// URL（包含 serverUrl + authToken）
-    ↓
-Direct Connect Session 建立
-    ↓
-远程 Claude Code 作为服务端
-```
-
-**SSH 远程会话流程**：
-```
-用户输入 /connect user@host
-    ↓
-建立 SSH 连接
-    ↓
-在远程服务器启动 Claude Code
-    ↓
-通过 SSH 管道传输数据
-```
-
-**Java 对比**：Direct Connect 类似于 RMI 的 stub-skeleton 机制，SSH 远程会话类似于 JMX 的远程管理。
-
----
-
-## 练习答案速查
-
-| 练习 | 核心答案 |
-|------|---------|
-| 1 | createMessageStream → normalize → buildSystemPrompt → SDK → streaming |
-| 2 | PKCE: verifier → challenge → auth URL → callback → token exchange |
-| 3 | Bridge 是 WebSocket/stdin 协议，IDE ↔ CLI 双向消息 |
-| 4 | 指数退避重试：429/500/503 可重试，其他不重试 |
-| 5 | Direct Connect=CLI→服务器，SSH=服务器→CLI隧道 |
-
----
-
-## API 通信 vs Java HTTP Client
-
-| 方面 | Claude Code | Java |
-|------|------------|------|
-| HTTP 客户端 | Anthropic SDK | RestTemplate / WebClient |
-| 流式处理 | AsyncGenerator | Flux / Observable |
-| 重试策略 | withRetry() | Resilience4j @Retryable |
-| 认证 | OAuth + API Key | Spring Security OAuth2 |
-| 多云 | Bedrock / Vertex | AWS SDK / GCP SDK |
-| 远程会话 | SSH / WebSocket | JMX / RMI |
-| IDE 集成 | Bridge 模式 | LSP (Language Server Protocol) |
-
----
-
-## 关键文件速查
-
-| 功能 | 文件路径 |
-|------|---------|
-| API 调用 | `src/services/api/claude.ts` |
-| OAuth | `src/services/oauth/client.ts` |
-| 远程会话 | `src/remote/RemoteSessionManager.ts` |
-| Bridge | `src/bridge/bridgeMain.ts` |
-| Direct Connect | `src/server/createDirectConnectSession.ts` |
-| SSH | `src/hooks/useSSHSession.ts` |
-| 错误处理 | `src/services/api/withRetry.ts` |
-
----
-
-## 下一篇
-
-👉 [12-typescript-vs-java.md](./12-typescript-vs-java.md) — TypeScript 与 Java 架构思想对比，包括类型系统、设计模式、异步编程的全面对比。
+1. **API 调用链**：从 `src/services/api/claude.ts` 入手，追踪一个完整的 API 请求是如何构建和发送的
+2. **OAuth 流程**：阅读 `src/services/oauth/client.ts`，理解 PKCE 流程和 token 刷新机制
+3. **Bridge 消息**：阅读 `src/bridge/bridgeMessaging.ts`，理解 IDE 和 CLI 之间的消息格式
+4. **错误处理**：阅读 `src/services/api/withRetry.ts`，理解重试策略的实现

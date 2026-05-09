@@ -1,3 +1,10 @@
+---
+title: "代码讲解索引"
+description: "为 Claude Code 源码学习提供代码讲解的总索引，包含每个模块核心代码的详细解析链接。"
+tags: [code, walkthrough, index, reference]
+date: 2026-05-09
+---
+
 # 代码讲解索引
 
 > **本文档目标**：为 Claude Code 源码学习提供代码讲解的总索引，包含每个模块核心代码的详细解析链接。

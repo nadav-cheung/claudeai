@@ -1,12 +1,19 @@
+---
+title: "权限系统"
+description: "理解 Claude Code 的多层权限架构，包括权限模式、规则系统、分类器、权限 UI 组件、以及拒绝追踪机制。"
+tags: [permissions, security, rule-system, classifier]
+date: 2026-05-09
+---
+
 # 05 - 权限系统 (Permission System)
 
 > **本章目标**：理解 Claude Code 的多层权限架构，包括权限模式 (Permission Mode)、规则系统 (Rule System)、分类器 (Classifier)、权限 UI 组件、以及拒绝追踪 (Denial Tracking) 机制。掌握从模型发出工具调用到最终权限决策的完整链路。
 
 ---
 
-## 核心概念
+## 1. 核心概念
 
-### 1. 权限模式 (Permission Modes)
+### 1.1 权限模式 (Permission Modes)
 
 Claude Code 支持多种权限模式，控制工具调用时是否需要用户确认：
 
@@ -19,9 +26,10 @@ Claude Code 支持多种权限模式，控制工具调用时是否需要用户�
 | `bypassPermissions` | 绕过权限 | 跳过所有权限检查（危险） |
 | `dontAsk` | 不再询问 | 类似 auto，使用分类器判断 |
 
-### 2. 规则系统 (Rule System)
+### 1.2 规则系统 (Rule System)
 
 权限规则来源按优先级排列：
+
 - `cliArg` — 命令行参数
 - `flagSettings` — 标志设置
 - `policySettings` — 策略设置（管理员级别）
@@ -30,13 +38,14 @@ Claude Code 支持多种权限模式，控制工具调用时是否需要用户�
 - `localSettings` — 本地 `settings.local.json`
 - `session` — 会话级临时规则（用户选择"仅本次允许"）
 
-### 3. 权限决策流程
+### 1.3 权限决策流程
 
 ```
 模型发出 tool_use → 检查规则 → 检查分类器 → (可选) 弹出对话框 → 决策
 ```
 
 核心文件：
+
 - `src/hooks/useCanUseTool.tsx` — React hook，权限检查的入口
 - `src/utils/permissions/permissions.ts` — 权限引擎核心
 - `src/utils/permissions/PermissionMode.ts` — 权限模式定义
@@ -45,7 +54,7 @@ Claude Code 支持多种权限模式，控制工具调用时是否需要用户�
 
 ---
 
-## 源码导览
+## 2. 源码导览
 
 ### useCanUseTool Hook (useCanUseTool.tsx)
 
@@ -81,9 +90,7 @@ CanUseToolFn(tool, input, toolUseContext, ...)
 
 ### 权限引擎：hasPermissionsToUseTool (permissions.ts)
 
-```
-src/utils/permissions/permissions.ts
-```
+**文件**：`src/utils/permissions/permissions.ts`
 
 这个函数实现了完整的规则匹配和分类器检查：
 
@@ -108,15 +115,14 @@ const PERMISSION_MODE_CONFIG = {
 ```
 
 关键点：
+
 - `auto` 模式是内部(ant)专用，不暴露给外部用户
 - `bypassPermissions` 和 `dontAsk` 标记为 `error` 颜色，表示高风险
 - `plan` 模式使用暂停图标，表示只读限制
 
 ### 权限初始化 (permissionSetup.ts)
 
-```
-src/utils/permissions/permissionSetup.ts
-```
+**文件**：`src/utils/permissions/permissionSetup.ts`
 
 这个文件负责在会话启动时初始化权限上下文：
 
@@ -131,7 +137,7 @@ src/utils/permissions/permissionSetup.ts
 src/components/permissions/
 ├── PermissionRequest.tsx        — 权限请求主组件
 ├── PermissionPrompt.tsx         — 权限提示 UI
-├── PermissionDialog.tsx         — 权限对话框
+├── PermissionDialog.tsx          — 权限对话框
 ├── PermissionExplanation.tsx    — 权限解释文本
 ├── PermissionRuleExplanation.tsx — 规则说明
 ├── BashPermissionRequest/       — Bash 命令权限请求
@@ -139,7 +145,7 @@ src/components/permissions/
 ├── FileWritePermissionRequest/  — 文件写入权限请求
 ├── SandboxPermissionRequest.tsx — 沙箱权限请求
 ├── SedEditPermissionRequest/    — sed 编辑权限请求
-├── WebFetchPermissionRequest/   — Web 请求权限请求
+├── WebFetchPermissionRequest/    — Web 请求权限请求
 └── ...
 ```
 
@@ -147,7 +153,7 @@ src/components/permissions/
 
 ---
 
-## 数据流图
+## 3. 数据流图
 
 ### 权限检查完整流程
 
@@ -246,9 +252,9 @@ deny 规则优先于 allow 规则
 
 ---
 
-## 关键代码
+## 4. 关键代码
 
-### 1. 权限结果类型 (PermissionResult.ts)
+### 4.1 权限结果类型 (PermissionResult.ts)
 
 ```typescript
 // src/utils/permissions/PermissionResult.ts
@@ -274,7 +280,7 @@ type PermissionDecisionReason =
 
 `decisionReason` 是遥测和调试的关键——它记录了决策是如何做出的。
 
-### 2. useCanUseTool 的分类器投机检查 (useCanUseTool.tsx:126-158)
+### 4.2 useCanUseTool 的分类器投机检查 (useCanUseTool.tsx:126-158)
 
 ```typescript
 // 投机性分类器检查：给分类器 2 秒时间
@@ -299,7 +305,7 @@ handleInteractivePermission(...)
 
 这体现了"grace period"设计：给分类器一个短暂窗口来做出快速决策，避免弹出不必要的对话框。
 
-### 3. 拒绝追踪 (denialTracking.ts)
+### 4.3 拒绝追踪 (denialTracking.ts)
 
 ```typescript
 // src/utils/permissions/denialTracking.ts
@@ -318,7 +324,7 @@ export function shouldFallbackToPrompting(state: DenialTrackingState): boolean {
 
 当分类器连续拒绝 3 次或总共拒绝 20 次后，自动回退到提示模式——这防止了分类器在不确定情况下无限拒绝。
 
-### 4. Auto 模式状态 (autoModeState.ts)
+### 4.4 Auto 模式状态 (autoModeState.ts)
 
 ```typescript
 // src/utils/permissions/autoModeState.ts
@@ -333,7 +339,7 @@ export function setAutoModeCircuitBroken(broken: boolean): void {
 
 Auto 模式有一个"熔断器"机制：当远程配置（GrowthBook）将 `tengu_auto_mode_config.enabled` 设为 `disabled` 时，`autoModeCircuitBroken` 被设为 true，阻止 SDK 或显式请求重新进入 auto 模式。
 
-### 5. Bash 分类器 (bashClassifier.ts)
+### 4.5 Bash 分类器 (bashClassifier.ts)
 
 ```typescript
 // src/utils/permissions/bashClassifier.ts (stub — 外部构建的占位文件)
@@ -358,13 +364,12 @@ export async function classifyBashCommand(
 
 分类器使用 prompt 规则描述（如 "prompt: running npm test commands"）来判断命令是否匹配。这是"分类器权限系统"的核心——用户描述允许/拒绝的命令类型，AI 判断具体命令是否匹配。
 
-### 6. 权限上下文创建 (PermissionContext.ts)
+### 4.6 权限上下文创建 (PermissionContext.ts)
 
-```
-src/hooks/toolPermission/PermissionContext.ts
-```
+**文件**：`src/hooks/toolPermission/PermissionContext.ts`
 
 `createPermissionContext()` 创建一个上下文对象，封装了：
+
 - `resolveIfAborted()` — 检查请求是否已被取消
 - `logDecision()` — 记录权限决策到遥测
 - `buildAllow()` — 构建 allow 决策结果
@@ -373,99 +378,44 @@ src/hooks/toolPermission/PermissionContext.ts
 
 ---
 
-## 练习
+## 5. 练习
 
 ### 练习 1：理解权限模式的转换
 
-**类比 Java**：权限模式转换类似于 Spring Security 的 `SecurityFilterChain` 动态切换。
+阅读 `permissionSetup.ts` 和 `PermissionMode.ts`，回答：
 
-**答案**：
+1. 从 `default` 模式切换到 `plan` 模式时，`applyPermissionRulesToPermissionContext()` 做了什么？
+2. 从 `plan` 模式退出时，如何恢复到之前的权限模式？
+3. `auto` 模式在什么条件下会被自动激活？
 
-1. **`default` → `plan` 模式**
-   - `applyPermissionRulesToPermissionContext()` 设置只读规则
-   - 所有写操作（Edit/Write/Bash）被标记为 deny
-   - 模型只能执行只读操作
+### 练习 2：追踪一条 deny 规则的生效路径
 
-2. **`plan` 模式退出恢复**
-   - 从会话状态中读取之前的权限模式
-   - 恢复到 `default` 或用户之前设置的模式
+场景：在 `.claude/settings.json` 中添加了 `permissions.deny: ["Bash(rm -rf *)"]`。
 
-3. **`auto` 模式激活条件**
-   - SDK 消费者显式请求 `auto` 模式
-   - `tengu_auto_mode_config.enabled` 不为 `disabled`
-   - 熔断器 `autoModeCircuitBroken` 为 false
+步骤：
 
-### 练习 2：追踪 deny 规则生效路径
+1. 阅读 `permissionsLoader.ts` 中的 `loadAllPermissionRulesFromDisk()`
+2. 追踪规则如何被解析为 `PermissionRule` 对象
+3. 在 `checkRuleBasedPermissions()` 中找到规则匹配逻辑
+4. 如果同时存在 allow 规则 `Bash(rm *)`，哪个生效？
 
-**类比 Java**：规则匹配类似于 Spring Security 的 `AccessDecisionVoter` 投票。
+### 练习 3：分析分类器权限系统
 
-**答案**：
+目标：理解分类器如何用 prompt 描述来判断命令安全性。
 
-1. **规则加载路径**：`loadAllPermissionRulesFromDisk()` → 解析 JSON → 生成 PermissionRule → 按优先级排序
+1. 阅读 `bashClassifier.ts` 中的 `classifyBashCommand()` 接口
+2. 阅读 `classifierDecision.ts` 了解分类器决策逻辑
+3. 分析 `PROMPT_PREFIX = 'prompt:'` 规则的工作方式
 
-2. **deny 优先于 allow**：deny 规则匹配 → 直接拒绝，allow 规则不被检查
-
-**Java 对比**：
-```java
-// Spring Security 投票器
-public int vote(Authentication auth, Object target, Collection<ConfigAttribute> attrs) {
-    for (ConfigAttribute attr : attrs) {
-        if ("ROLE_ADMIN".equals(attr.getAttribute())) return ACCESS_GRANTED;
-        if ("ROLE_DENY".equals(attr.getAttribute())) return ACCESS_DENIED;  // deny 优先
-    }
-    return ACCESS_ABSTAIN;
-}
-```
-
-### 练习 3：分类器权限系统分析
-
-**答案**：
-
-| 方面 | Prompt 描述 | 直接匹配 |
-|------|------------|---------|
-| 灵活性 | 高（自然语言） | 低（精确匹配） |
-| 泛化 | AI 可推断类似命令 | 无推断能力 |
-| 误报率 | 可能误判 | 精确但死板 |
-| 性能 | 需 AI 调用 | 快速正则 |
-
-**优点**：用户可用"删除文件的命令"描述一类危险操作，AI 理解 `rm -rf`、`git push --force` 等。
-
-**缺点**：依赖 AI 理解能力，可能误判；需额外 AI 调用开销。
+思考题：为什么用 prompt 描述而不是直接匹配命令模式？这种设计的优缺点是什么？
 
 ### 练习 4：权限 UI 组件分析
 
-**答案**：
+阅读 `src/components/permissions/PermissionRequest.tsx`：
 
-1. **`ToolUseConfirm` 字段**：`toolName`, `input`, `toolUseId`, `inputDescription`
-
-2. **Allow Once vs Always**：
-   - `Allow Once`：session 临时规则
-   - `Allow Always`：持久化到 settings.json
-
-3. **`acceptFeedback`**：记录用户反馈，用于改进分类器
-
----
-
-## 练习答案速查
-
-| 练习 | 核心答案 |
-|------|---------|
-| 1 | plan 只读限制，auto 通过 GrowthBook + 熔断器激活 |
-| 2 | deny 优先于 allow（安全不变量） |
-| 3 | prompt 灵活但有 AI 依赖开销 |
-| 4 | Once=session 临时，Always=持久化 |
-
----
-
-## 权限系统 vs Java Spring Security
-
-| 方面 | Claude Code | Spring Security |
-|------|-------------|----------------|
-| 规则定义 | JSON + glob 模式 | `hasRole()`, `permitAll()` |
-| 匹配方式 | glob/wildcard | Ant 路径 + SpEL |
-| 决策者 | 规则 + 分类器 + 用户 | AccessDecisionManager |
-| 权限模式 | default/plan/auto/bypass | 无等价物 |
-| 熔断器 | autoModeCircuitBroken | CircuitBreaker |
+1. `ToolUseConfirm` 类型包含哪些字段？
+2. 权限对话框如何区分 "Allow Once" 和 "Allow Always" 的持久化？
+3. `acceptFeedback` 字段的作用是什么？
 
 ---
 

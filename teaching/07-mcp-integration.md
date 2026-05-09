@@ -1,4 +1,11 @@
-# 07 - MCP 集成 (MCP Integration)
+---
+title: "MCP 集成"
+description: "深入理解 Claude Code 如何通过 MCP (Model Context Protocol) 协议连接外部工具服务器，涵盖客户端生命周期、连接类型、工具桥接、Elicitation 交互、OAuth 认证等。"
+tags: [mcp, protocol, integration, tools]
+date: 2026-05-09
+---
+
+# 07 - MCP 集成
 
 > **本章目标**：深入理解 Claude Code 如何通过 MCP (Model Context Protocol) 协议连接外部工具服务器，涵盖客户端生命周期、连接类型（stdio、SSE、Streamable HTTP、WebSocket）、工具/资源/提示发现、MCP 工具桥接、Elicitation 交互、OAuth 认证、企业策略过滤和 Claude.ai 官方注册表。
 
@@ -22,7 +29,7 @@
 MCP (Model Context Protocol) 是一个开放协议，允许 AI 应用通过标准化接口连接外部工具和数据源。Claude Code 作为 MCP 客户端，可以连接多个 MCP 服务器，每个服务器提供三类能力：
 
 1. **Tools（工具）**：可调用的函数，如数据库查询、API 调用、文件操作
-2. **Resources（资源）**：可读取的数据对象，如文件内容、数据库记录
+2. **Resource（资源）**：可读取的数据对象，如文件内容、数据库记录
 3. **Prompts（提示模板）**：预定义的提示词模板
 
 ```
@@ -71,7 +78,7 @@ type MCPServerConnection =
 
 ## 源码导览
 
-### 1. MCP 服务架构总览
+### MCP 服务架构总览
 
 ```
 src/services/mcp/
@@ -112,7 +119,7 @@ src/components/mcp/
 └── MCPAgentServerMenu.tsx  ← Agent 服务器菜单
 ```
 
-### 2. 配置加载流程
+### 配置加载流程
 
 `src/services/mcp/config.ts` 中的 `getClaudeCodeMcpConfigs()` 是配置加载的核心入口：
 
@@ -146,7 +153,7 @@ src/components/mcp/
             └── 支持名称、命令、URL 三种匹配模式
 ```
 
-### 3. 服务器连接流程
+### 服务器连接流程
 
 `src/services/mcp/client.ts` 中的 `connectToServer()` 是连接的核心：
 
@@ -510,4 +517,4 @@ export const fetchClaudeAIMcpConfigsIfEligible = memoize(async () => {
 
 ## 下一篇
 
-👉 [08-agent-and-team.md](./08-agent-and-team.md) — Agent 与多 Agent 协作
+[08-agent-and-team.md](./08-agent-and-team.md) — Agent 与多 Agent 协作
