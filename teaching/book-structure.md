@@ -1,6 +1,6 @@
 ---
 title: "Claude Code 源码解析 - 书籍结构"
-description: "将 teaching 目录下的所有文档重构为一本完整的书籍结构，包含学习路径、章节组织和内容映射。"
+description: "规划 Claude Code 源码解析书籍的完整结构，包含五部分架构、13个正文章节、12个附录及三条学习路径映射。"
 tags: [book, structure, organization, learning-path]
 date: 2026-05-09
 ---
