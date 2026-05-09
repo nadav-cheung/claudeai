@@ -13,7 +13,7 @@ date: 2026-05-09
 
 ## 学习路径图
 
-```
+```text
 用户输入 → 命令解析 → 工具执行 → API调用 → 输出
     │           │            │           │
     ↓           ↓            ↓           ↓
@@ -21,7 +21,7 @@ date: 2026-05-09
  Input     斜杠命令      权限检查    create
 
 类比：DispatcherServlet → @Controller → TransactionTemplate → RestTemplate
-```
+```text
 
 ---
 
@@ -45,7 +45,7 @@ date: 2026-05-09
 public interface PaymentStrategy {
     PayResult pay(PaymentRequest request);
 }
-```
+```text
 
 **Claude Code等效实现**：
 ```typescript
@@ -58,7 +58,7 @@ const tools = {
   'Read': { call: async (input) => readFile(input.path) },
   'Write': { call: async (input) => writeFile(input.path, input.content) },
 };
-```
+```text
 
 **关键差异**：TypeScript的`Tool`接口更"胖"——除了`call`还有`description`、`inputSchema`等30+方法。这让工具自描述，但实现复杂度更高。
 
@@ -67,14 +67,14 @@ const tools = {
 ## 3. 权限系统：类比Spring Security
 
 **Spring Security流程**：
-```
+```text
 请求 → FilterChain → AccessDecisionManager → 目标方法
-```
+```text
 
 **Claude Code权限流程**：
-```
+```text
 工具调用 → checkPermissions() → PermissionRule解析 → 用户确认/自动通过
-```
+```java
 
 **配置对比**：
 
@@ -92,7 +92,7 @@ const tools = {
 @Component
 @Scope("singleton")  // 默认单例
 public class UserService { }
-```
+```typescript
 
 **Claude Code Signal**：
 ```typescript
@@ -103,7 +103,7 @@ export const state = {
 
 const sessionId = state.sessionId.get();
 state.sessionId.set('new-session-id');
-```
+```text
 
 | 方面 | Spring Bean | Claude Code Signal |
 |------|-------------|-------------------|
@@ -119,7 +119,7 @@ state.sessionId.set('new-session-id');
 ResponseEntity<MessageResponse> response = restTemplate.exchange(
     "https://api.anthropic.com/v1/messages",
     HttpMethod.POST, entity, MessageResponse.class);
-```
+```typescript
 
 **TypeScript流式调用**：
 ```typescript
@@ -129,7 +129,7 @@ export async function* createMessageStream(request: CreateMessageRequest) {
     yield event;
   }
 }
-```
+```text
 
 | 方面 | RestTemplate | TypeScript AsyncGenerator |
 |------|-------------|--------------------------|
@@ -170,7 +170,7 @@ export async function* createMessageStream(request: CreateMessageRequest) {
 ```bash
 CLAUDE_DEBUG=1 claude
 # 观察：消息构建 → API调用 → 工具执行
-```
+```text
 
 ### 实验2：理解工具执行
 在 `tools/FileReadTool/` 中添加日志，观察调用流程。
@@ -178,7 +178,7 @@ CLAUDE_DEBUG=1 claude
 ### 实验3：理解权限流程
 ```bash
 cat ~/.claude/settings.json | jq '.permissions'
-```
+```text
 
 ---
 
@@ -247,7 +247,7 @@ Java开发者学习Claude Code的关键，是理解TypeScript的"对象字面量
 
 ### 推荐学习顺序
 
-```
+```text
 1. 入门
    └── quick-start.md（本文件）
    └── 第00章-全局架构总览.md（全局架构）
@@ -269,4 +269,4 @@ Java开发者学习Claude Code的关键，是理解TypeScript的"对象字面量
 5. 实战
    └── A01-A13（代码详解）
    └── 第12章-TypeScript实战对比.md（语言对比）
-```
+```text

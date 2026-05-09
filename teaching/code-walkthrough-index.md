@@ -36,7 +36,7 @@ date: 2026-05-09
 
 ### 路径 1：核心流程优先（推荐首次学习）
 
-```
+```text
 00-overview.md (全局架构)
     ↓
 01-entry-and-bootstrap.md + A01 (启动流程)
@@ -46,11 +46,11 @@ date: 2026-05-09
 04-tool-execution.md + A04 (工具执行)
     ↓
 05-permission-system.md + A05 (权限系统)
-```
+```text
 
 ### 路径 2：深入理解（进阶学习）
 
-```
+```text
 06-context-and-compact.md + A06 (上下文压缩)
     ↓
 09-memory-and-persistence.md + A09 (记忆系统)
@@ -58,11 +58,11 @@ date: 2026-05-09
 08-agent-and-team.md + A08 (Agent 协作)
     ↓
 10-skills-and-plugins.md + A10 (插件系统)
-```
+```text
 
 ### 路径 3：集成与扩展（专家学习）
 
-```
+```text
 07-mcp-integration.md + A07 (MCP 协议)
     ↓
 11-api-and-remote.md + A11 (API 通信)
@@ -70,7 +70,7 @@ date: 2026-05-09
 02-ink-terminal-ui.md + A02 (UI 渲染)
     ↓
 A13-TypeScript实战 (实战技巧)
-```
+```text
 
 ---
 
@@ -138,7 +138,7 @@ A13-TypeScript实战 (实战技巧)
 
 ## 模块调用关系图
 
-```
+```text
 用户输入
     ↓
 ┌─────────────────────────────────────────────────────────┐
@@ -179,7 +179,7 @@ A13-TypeScript实战 (实战技巧)
 │  ├── compactConversation() ← 上下文压缩                 │
 │  └── applyMicroCompaction() ← 微压缩                   │
 └─────────────────────────────────────────────────────────┘
-```
+```text
 
 ---
 
