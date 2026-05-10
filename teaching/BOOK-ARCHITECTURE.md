@@ -106,7 +106,7 @@ Claude Code 源码解析
 | 引言 | `引言-{标题}.md` | `引言-如何阅读本书.md` |
 | 章节 | `第{XX}章-{标题}.md` | `第00章-全局架构总览.md` |
 | 附录 | `A{XX}-{标题}.md` | `A01-启动流程代码.md` |
-| 辅助 | `{描述}.md` | `book-progress.md` |
+| 进度 | `RalphLoop进度.md` | 迭代进度追踪 |
 
 ---
 
@@ -809,11 +809,10 @@ sequenceDiagram
 
 | 文件 | 说明 |
 |------|------|
-| `book-progress.md` | 编写进度记录 |
 | `book-structure.md` | 书籍结构（旧版，可废弃） |
-| `code-walkthrough-index.md` | 代码索引（保留） |
-| `quick-start.md` | Java 开发者速览（合并到引言） |
-| `出版检查报告.md` | 质量检查报告 |
+| `code-walkthrough-index.md` | 代码索引 |
+| `quick-start.md` | Java 开发者速览 |
+| `RalphLoop进度.md` | 当前进度追踪 |
 
 ---
 

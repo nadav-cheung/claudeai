@@ -15,20 +15,20 @@ date: 2026-05-09
 
 | 模块 | 文档 | 代码讲解附录 |
 |------|------|-------------|
-| 全局架构 | [第00章-全局架构总览.md](./第00章-全局架构总览.md) | （架构概述，无独立代码详解） |
-| 入口与启动 | [第01章-入口与启动流程.md](./第01章-入口与启动流程.md) | [A01-启动流程代码.md](./appendix/A01-启动流程代码.md) |
-| 终端 UI | [第02章-终端UI框架.md](./第02章-终端UI框架.md) | [A02-UI渲染代码.md](./appendix/A02-UI渲染代码.md) |
-| 工具系统 | [第03章-工具系统.md](./第03章-工具系统.md) | [A03-工具系统代码.md](./appendix/A03-工具系统代码.md) |
-| 工具执行 | [第04章-工具执行与安全.md](./第04章-工具执行与安全.md) | [A04-工具执行代码.md](./appendix/A04-工具执行代码.md) |
-| 权限系统 | [第05章-权限系统.md](./第05章-权限系统.md) | [A05-权限系统代码.md](./appendix/A05-权限系统代码.md) |
-| 上下文压缩 | [第06章-上下文管理与压缩.md](./第06章-上下文管理与压缩.md) | [A06-压缩系统代码.md](./appendix/A06-压缩系统代码.md) |
-| MCP 集成 | [第07章-MCP协议集成.md](./第07章-MCP协议集成.md) | [A07-MCP集成代码.md](./appendix/A07-MCP集成代码.md) |
-| Agent 与团队 | [第08章-Agent与多Agent协作.md](./第08章-Agent与多Agent协作.md) | [A08-Agent代码.md](./appendix/A08-Agent代码.md) |
-| 记忆与持久化 | [第09章-记忆与持久化.md](./第09章-记忆与持久化.md) | [A09-记忆系统代码.md](./appendix/A09-记忆系统代码.md) |
-| Skills 与插件 | [第10章-Skills与插件系统.md](./第10章-Skills与插件系统.md) | [A10-插件系统代码.md](./appendix/A10-插件系统代码.md) |
-| API 与远程 | [第11章-API通信与远程.md](./第11章-API通信与远程.md) | [A11-API通信代码.md](./appendix/A11-API通信代码.md) |
-| TypeScript vs Java | [第12章-TypeScript实战对比.md](./第12章-TypeScript实战对比.md) | （跨语言对比，无独立代码详解） |
-| TypeScript 实战 | [附录](./appendix/A13-TypeScript实战.md) | （实战技巧与迁移指南） |
+| 全局架构 | [05-全局架构总览.md](./part-2-architecture/05-全局架构总览.md) | （架构概述，无独立代码详解） |
+| 入口与启动 | [06-入口与启动流程.md](./part-2-architecture/06-入口与启动流程.md) | [A01-启动流程代码.md](./appendix/A01-启动流程代码.md) |
+| 终端 UI | [07-终端UI框架.md](./part-2-architecture/07-终端UI框架.md) | [A02-UI渲染代码.md](./appendix/A02-UI渲染代码.md) |
+| 工具系统 | [08-工具系统.md](./part-2-architecture/08-工具系统.md) | [A03-工具系统代码.md](./appendix/A03-工具系统代码.md) |
+| 工具执行 | [09-工具执行与安全.md](./part-2-architecture/09-工具执行与安全.md) | [A04-工具执行代码.md](./appendix/A04-工具执行代码.md) |
+| 权限系统 | [10-权限系统.md](./part-2-architecture/10-权限系统.md) | [A05-权限系统代码.md](./appendix/A05-权限系统代码.md) |
+| 上下文压缩 | [11-上下文管理与压缩.md](./part-2-architecture/11-上下文管理与压缩.md) | [A06-压缩系统代码.md](./appendix/A06-压缩系统代码.md) |
+| MCP 集成 | [12-MCP协议集成.md](./part-2-architecture/12-MCP协议集成.md) | [A07-MCP集成代码.md](./appendix/A07-MCP集成代码.md) |
+| Agent 与团队 | [13-Agent与多Agent协作.md](./part-2-architecture/13-Agent与多Agent协作.md) | [A08-Agent代码.md](./appendix/A08-Agent代码.md) |
+| 记忆与持久化 | [14-记忆与持久化.md](./part-2-architecture/14-记忆与持久化.md) | [A09-记忆系统代码.md](./appendix/A09-记忆系统代码.md) |
+| Skills 与插件 | [15-Skills与插件系统.md](./part-2-architecture/15-Skills与插件系统.md) | [A10-插件系统代码.md](./appendix/A10-插件系统代码.md) |
+| API 与远程 | [16-API通信与远程.md](./part-2-architecture/16-API通信与远程.md) | [A11-API通信代码.md](./appendix/A11-API通信代码.md) |
+| TypeScript vs Java | [21-TypeScript实战对比.md](./part-4-advanced/21-TypeScript实战对比.md) | （跨语言对比，无独立代码详解） |
+| TypeScript 实战 | [A1-TypeScript实战技巧.md](./appendix/A1-TypeScript实战技巧.md) | （实战技巧与迁移指南） |
 
 ---
 
