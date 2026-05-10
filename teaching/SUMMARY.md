@@ -363,7 +363,7 @@ state.sessionId.subscribe(newValue => {
 A: 源码可能已更新。以函数名搜索为准：`grep -rn "functionName" src/`
 
 ### Q: A07 附录的代码跑不通？
-A: A07 引用了不存在的 `mcpCore.ts`。使用 `client.ts` 中的 `connectToServer()` 等函数。
+A: A07 已修复，源码引用 `client.ts`。如果行号不匹配，请用函数名搜索：`grep -rn "connectToServer" src/services/mcp/`
 
 ### Q: 如何验证理解？
 A: 尝试向他人解释。能讲清楚说明理解到位。
