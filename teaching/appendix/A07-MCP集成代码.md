@@ -2,222 +2,214 @@
 title: "A07 - MCP 集成代码详解"
 description: "深入解析 Claude Code MCP (Model Context Protocol) 集成系统的核心代码，包括 MCP 客户端生命周期、连接管理、工具桥接等。"
 tags: [code, mcp, protocol, integration]
-date: 2026-05-09
+date: 2026-05-10
 ---
 
 # A07 - MCP 集成代码详解
 
 > **本文档目标**：深入解析 Claude Code MCP (Model Context Protocol) 集成系统的核心代码，包括 MCP 客户端生命周期、连接管理、工具桥接等。
 
+> **⚠️ 重要说明**：本文档基于实际源码编写，与旧版文档有重大差异。主要变化：
+> - 连接管理从 `mcpCore.ts` 移至 `client.ts`
+> - 工具发现函数为 `fetchToolsForClient()` 而非 `discoverMCPTools()`
+> - MCPTool 使用 `buildTool()` 工厂模式而非类继承
+
 ---
 
 ## 1. MCP 连接类型
 
-**文件**：`src/services/mcp/types.ts:30-80`
+**文件**：`src/services/mcp/types.ts`
 
-**功能**：定义支持的 MCP 传输协议类型。
+**功能**：定义支持的 MCP 连接类型和传输协议。
 
 ```typescript
-// src/services/mcp/types.ts:30
-export type TransportType =
-  | 'stdio'      // 标准输入/输出（本地进程）
-  | 'sse'        // Server-Sent Events
-  | 'sse-ide'    // SSE (IDE 专用)
-  | 'http'       // Streamable HTTP
-  | 'ws'         // WebSocket
-  | 'ws-ide'     // WebSocket (IDE)
-  | 'local-grpc' // 本地 gRPC
-
-export interface MCPConnectionConfig {
-  transport: TransportType
-  // stdio 配置
-  command?: string           // 可执行命令
-  args?: string[]            // 命令参数
-  env?: Record<string, string>
-  // HTTP/SSE/WS 配置
-  url?: string
-  headers?: Record<string, string>
-  authToken?: string
-  // 通用配置
-  timeout?: number
-  retryCount?: number
-}
-```typescript
-
-### 1.1 传输类型对比
-
-| 类型 | 适用场景 | 延迟 | 复杂度 |
-|------|---------|------|-------|
-| `stdio` | 本地 npx 包 | 低 | 低 |
-| `sse` | HTTP 长连接 | 中 | 中 |
-| `http` | 现代 REST API | 中 | 低 |
-| `ws` | 双向实时 | 低 | 高 |
+// src/services/mcp/types.ts
+export type MCPServerConnection =
+  | ConnectedMCPServer    // 已连接：client 可用
+  | FailedMCPServer       // 连接失败：携带 error 信息
+  | NeedsAuthMCPServer    // 需要认证：需要 OAuth 流程
+  | PendingMCPServer      // 等待中：正在重连
+  | DisabledMCPServer     // 已禁用：用户手动关闭
+```
 
 ---
 
 ## 2. MCP 客户端连接管理
 
-**文件**：`src/services/mcp/mcpCore.ts:50-200`
+**文件**：`src/services/mcp/client.ts`
 
 **功能**：管理 MCP 服务器的生命周期。
 
-### 2.1 连接初始化
+### 2.1 连接初始化 (client.ts:595)
 
 ```typescript
-// src/services/mcp/mcpCore.ts:50
-export async function connectToMCPServer(
-  config: MCPConnectionConfig
-): Promise<MCPServerConnection> {
-  const { transport, ...options } = config
+// src/services/mcp/client.ts:595
+export const connectToServer = memoize(
+  async (
+    name: string,
+    serverRef: ScopedMcpServerConfig,
+    serverStats?: { totalServers: number; stdioCount: number; sseCount: number }
+  ): Promise<MCPServerConnection> => {
+    try {
+      let transport
 
-  // 创建传输层
-  const transportImpl = createTransport(transport, options)
-
-  // 创建 MCP 客户端
-  const client = new MCPClient({
-    transport: transportImpl,
-    onMessage: handleServerMessage,
-    onError: handleServerError,
-  })
-
-  // 初始化连接
-  await client.initialize()
-
-  // 发现服务器能力
-  const capabilities = await client.sendRequest('initialize', {
-    protocolVersion: '2024-11-05',
-    capabilities: {
-      tools: {},
-      resources: {},
-      prompts: {},
-    },
-    clientInfo: {
-      name: 'claude-code',
-      version: '2.1.88',
-    },
-  })
-
-  return {
-    id: generateConnectionId(),
-    config,
-    client,
-    capabilities,
-    status: 'connected',
-    connectedAt: Date.now(),
-  }
-}
-```typescript
-
-### 2.2 工具发现
-
-```typescript
-// src/services/mcp/mcpCore.ts:150
-export async function discoverMCPTools(
-  connection: MCPServerConnection
-): Promise<Tool[]> {
-  // 发送工具列表请求
-  const toolList = await connection.client.sendRequest(
-    'tools/list',
-    {}
-  )
-
-  // 转换为 Claude Code 工具格式
-  return toolList.tools.map(tool => ({
-    name: `mcp__${connection.id}__${tool.name}`,
-    description: tool.description,
-    inputSchema: tool.inputSchema,
-    isMcp: true,
-    mcpInfo: {
-      serverName: connection.config.name,
-      toolName: tool.name,
-    },
-    // 包装为 MCP 工具调用
-    call: async (args, context) => {
-      const result = await connection.client.sendRequest(
-        'tools/call',
-        {
-          name: tool.name,
-          arguments: args,
-        }
-      )
-      return {
-        success: true,
-        data: result.content,
+      // 根据 serverRef.type 选择传输类型
+      if (serverRef.type === 'sse') {
+        // SSE (Server-Sent Events) 传输
+        const authProvider = new ClaudeAuthProvider(name, serverRef)
+        transport = new SSEClientTransport(
+          new URL(serverRef.url),
+          transportOptions,
+        )
+      } else if (serverRef.type === 'sse-ide') {
+        // IDE 专用 SSE 传输
+        transport = new SSEClientTransport(
+          new URL(serverRef.url),
+          transportOptions,
+        )
+      } else if (serverRef.type === 'stdio') {
+        // Stdio 传输（本地进程）
+        transport = new StdioClientTransport({
+          command: serverRef.command,
+          args: serverRef.args,
+          env: serverRef.env,
+        })
       }
-    },
-  }))
-}
+
+      // 创建 MCP 客户端
+      const client = new MCPClient({
+        transport,
+        onMessage: handleServerMessage,
+        onError: handleServerError,
+      })
+
+      // 初始化连接
+      await client.initialize()
+
+      // 发现服务器能力
+      const capabilities = await client.sendRequest('initialize', {
+        protocolVersion: '2024-11-05',
+        capabilities: { tools: {}, resources: {}, prompts: {} },
+        clientInfo: { name: 'claude-code', version: '2.1.88' },
+      })
+
+      return {
+        id: generateConnectionId(),
+        config: serverRef,
+        client,
+        capabilities,
+        status: 'connected',
+        connectedAt: Date.now(),
+      }
+    } catch (error) {
+      return { type: 'failed', error, config: serverRef }
+    }
+  }
+)
+```
+
+### 2.2 工具发现 (client.ts:1743)
+
 ```typescript
+// src/services/mcp/client.ts:1743
+export const fetchToolsForClient = memoizeWithLRU(
+  async (client: MCPServerConnection): Promise<Tool[]> => {
+    if (client.type !== 'connected') return []
+
+    if (!client.capabilities?.tools) {
+      return []
+    }
+
+    // 发送工具列表请求
+    const result = (await client.client.request(
+      { method: 'tools/list' },
+      ListToolsResultSchema,
+    )) as ListToolsResult
+
+    // 转换 MCP 工具为 Claude Code 工具格式
+    return result.tools.map((tool): Tool => {
+      const fullyQualifiedName = buildMcpToolName(client.name, tool.name)
+      return {
+        ...MCPTool,
+        name: fullyQualifiedName,
+        mcpInfo: { serverName: client.name, toolName: tool.name },
+        isMcp: true,
+        async description() {
+          return tool.description ?? ''
+        },
+        async checkPermissions() {
+          return {
+            behavior: 'passthrough',
+            message: 'MCPTool requires permission.',
+          }
+        },
+        // ... 其他覆盖属性
+      }
+    })
+  }
+)
+```
 
 ---
 
-## 3. MCP 工具桥接
+## 3. MCPTool 工具桥接
 
-**文件**：`src/tools/MCPTool/MCPTool.ts:50-150`
+**文件**：`src/tools/MCPTool/MCPTool.ts`
 
 **功能**：将 MCP 工具桥接为 Claude Code 内部工具。
 
+### 3.1 MCPTool 模板 (MCPTool.ts:27)
+
 ```typescript
-// src/tools/MCPTool/MCPTool.ts:50
-export class MCPTool implements Tool {
-  readonly name: string
-  readonly inputSchema: AnyObject
-  isMcp = true
+// src/tools/MCPTool/MCPTool.ts:27
+export const MCPTool = buildTool({
+  isMcp: true,
+  name: 'mcp',  // 会被 fetchToolsForClient 覆盖
+  maxResultSizeChars: 100_000,
 
-  constructor(
-    private serverName: string,
-    private toolName: string,
-    private mcpClient: MCPServerConnection
-  ) {
-    this.name = `mcp__${serverName}__${toolName}`
-  }
+  async description() {
+    return DESCRIPTION  // 来自 prompt.ts
+  },
 
-  async call(args, context, canUseTool) {
-    // 1. 权限检查
-    const permission = await canUseTool(this, args, context)
-    if (permission.behavior === 'deny') {
-      return { success: false, error: permission.message }
-    }
+  async call() {
+    // 实际实现在 client.ts 中被覆盖
+    return { data: '' }
+  },
 
-    // 2. 发送 MCP 请求
-    const result = await this.mcpClient.sendRequest('tools/call', {
-      name: this.toolName,
-      arguments: args,
-    })
-
-    // 3. 处理结果
+  async checkPermissions(): Promise<PermissionResult> {
     return {
-      success: true,
-      data: formatMCPToolResult(result),
+      behavior: 'passthrough',
+      message: 'MCPTool requires permission.',
     }
-  }
+  },
 
-  async prompt() {
-    return `${this.toolName}: MCP tool from ${this.serverName}`
-  }
-}
+  renderToolUseMessage,      // UI.tsx
+  renderToolResultMessage,    // UI.tsx
+})
+```
+
+### 3.2 工具名称构建 (client.ts:1730)
+
 ```typescript
+// src/services/mcp/client.ts:1730
+function buildMcpToolName(
+  serverName: string,
+  toolName: string
+): string {
+  return `mcp__${serverName}__${toolName}`
+}
+```
 
 ---
 
 ## 4. Elicitation 机制
 
-**文件**：`src/services/mcp/elicitation.ts:50-120`
+**文件**：`src/services/mcp/elicitationHandler.ts`
 
 **功能**：MCP 服务器主动请求用户输入。
 
 ```typescript
-// src/services/mcp/elicitation.ts:50
-export interface ElicitationRequest {
-  message: string
-  requestedSchema: {
-    type: 'string' | 'number' | 'boolean' | 'object'
-    properties?: Record<string, any>
-    required?: string[]
-  }
-}
-
-// 处理 elicitation 请求
+// src/services/mcp/elicitationHandler.ts
 export async function handleElicitationRequest(
   request: ElicitationRequest,
   context: ToolUseContext
@@ -232,207 +224,89 @@ export async function handleElicitationRequest(
   // 2. 返回用户输入
   return response
 }
-```typescript
+```
 
 ---
 
 ## 5. MCP OAuth 认证
 
-**文件**：`src/services/mcp/oauth.ts:50-100`
+**文件**：`src/services/mcp/auth.ts`
 
 ```typescript
-// src/services/mcp/oauth.ts:50
-export async function performMCP OAuthFlow(
-  serverConfig: MCPConnectionConfig
-): Promise<void> {
-  // 1. 获取 OAuth 配置
-  const oauthConfig = await fetchOAuthConfig(serverConfig.url)
+// src/services/mcp/auth.ts
+// ClaudeAuthProvider 实现 OAuth 2.0 + PKCE 流程
+export class ClaudeAuthProvider {
+  async tokens(): Promise<TokenResponse | null> {
+    // 获取存储的 OAuth token
+  }
 
-  // 2. 生成 PKCE 挑战
-  const { codeVerifier, codeChallenge } = generatePKCEChallenge()
-
-  // 3. 重定向到授权页面
-  const authUrl = buildOAuthAuthUrl({
-    url: oauthConfig.authorizationUrl,
-    clientId: oauthConfig.clientId,
-    redirectUri: oauthConfig.redirectUri,
-    codeChallenge,
-    scope: oauthConfig.scope,
-  })
-
-  // 4. 交换 token
-  const tokenResponse = await exchangeCodeForToken({
-    url: oauthConfig.tokenUrl,
-    code: receivedCode,
-    codeVerifier,
-    clientId: oauthConfig.clientId,
-  })
-
-  // 5. 存储 token
-  await storeOAuthToken(serverConfig.name, tokenResponse)
+  async refreshToken(): Promise<void> {
+    // 刷新过期的 token
+  }
 }
-```text
+```
 
 ---
+
+## 6. 传输层实现
+
+**文件**：`src/services/mcp/InProcessTransport.ts`
+
+```typescript
+// src/services/mcp/InProcessTransport.ts:57
+export function createLinkedTransportPair(): [Transport, Transport] {
+  // 创建一对 linked transports，用于进程内通信
+}
+```
 
 ---
 
 ## 练习
 
-### 练习 1：MCP 协议与工具调用的区别
+### 练习 1：MCP 工具调用流程
 
-**问题**：MCP 工具调用和内置工具调用有什么不同？
-
-**答案**：
-
-| 方面 | 内置工具 | MCP 工具 |
-|------|---------|---------|
-| 实现位置 | Claude Code 内 | 外部进程 |
-| 调用方式 | 直接调用 | JSON-RPC over Stdio/HTTP |
-| 工具发现 | 编译时确定 | 运行时 discover |
-| 生命周期 | 随进程存在 | 可独立管理 |
-| 通信协议 | 函数调用 | MCP JSON-RPC |
-
-**MCP 调用流程**：
-```text
-Claude Code → MCPTool.call() → JSON-RPC Request
-                                         ↓
-                              MCP Server (外部进程)
-                                         ↓
-                              JSON-RPC Response
-                                         ↓
-                              MCPTool 返回 ToolResult
-```text
-
-**Java 对比**：类似于 RMI 或 WebService 调用，但使用标准化的 JSON-RPC 协议。
-
----
-
-### 练习 2：Stdio vs HTTP 传输
-
-**问题**：MCP 的 StdioTransport 和 HttpTransport 分别适用什么场景？
+**问题**：描述 MCP 工具从发现到调用的完整流程。
 
 **答案**：
 
-| 传输方式 | 适用场景 | 优点 | 缺点 |
-|---------|---------|------|------|
-| **Stdio** | 本地进程 | 低延迟，简单 | 需要进程管理 |
-| **HTTP** | 远程服务 | 可网络访问 | 延迟较高 |
-
-**Stdio 传输模型**：
 ```text
-Claude Code              MCP Server
-     │                       │
-     │  ←── stdin ──────────  │
-     │  ─── stdout ────────→  │
-     │  ─── stderr ────────→  │
-```text
-
-**HTTP 传输模型**：
-```text
-Claude Code              MCP Server
-     │                       │
-     │  ──── HTTP POST ────→  │
-     │  ←─── HTTP Response ──  │
-```java
-
----
-
-### 练习 3：工具发现机制
-
-**问题**：Claude Code 如何发现 MCP 服务器提供的工具？
-
-**答案**：
-
-```typescript
-// 连接时自动发现
-async function discoverMCPTools(client: MCPClient) {
-  // 1. 发送 list_tools 请求
-  const response = await client.sendRequest({
-    method: 'tools/list',
-    params: {}
-  })
-
-  // 2. 解析返回的工具列表
-  const tools = response.tools.map(mcpTool => ({
-    name: mcpTool.name,
-    description: mcpTool.description,
-    inputSchema: mcpTool.inputSchema,
-  }))
-
-  // 3. 转换为 MCPTool 实例
-  return tools.map(tool => new MCPTool(tool))
-}
-```java
-
-**发现时机**：
-1. MCP 服务器连接时（`initialize` 阶段）
-2. 服务器主动通知（`notifications/tools/list_changed`）
-
----
-
-### 练习 4：Elicitation 请求
-
-**问题**：什么是 Elicitation？为什么需要它？
-
-**答案**：
-
-**Elicitation**：MCP 服务器主动请求用户输入的机制
-
-**使用场景**：
-```typescript
-// MCP 服务器需要用户选择或输入
-interface ElicitationRequest {
-  message: "请选择文件编码"
-  requestedSchema: {
-    type: "string"
-    enum: ["UTF-8", "GBK", "ISO-8859-1"]
-  }
-}
-```text
-
-**处理流程**：
-```text
-MCP Server → elicitation request
+连接 MCP 服务器 → fetchToolsForClient() → 获取工具列表
     ↓
-Claude Code 显示对话框
+构建 MCPTool 实例（name, description, call 被覆盖）
     ↓
-用户选择/输入
+模型发出 tool_use { name: "mcp__server__tool" }
     ↓
-返回响应给 MCP Server
-```java
-
-**Java 对比**：类似于 Swing 的 `JOptionPane.showInputDialog()`。
+runToolUse() → 找到 MCPTool → 调用覆盖的 call()
+    ↓
+通过 MCP JSON-RPC 发送请求到外部服务器
+    ↓
+返回结果
+```
 
 ---
 
-### 练习 5：MCP OAuth 流程
+### 练习 2：连接类型选择
 
-**问题**：MCP OAuth 认证使用 PKCE 的原因是什么？
+**问题**：Claude Code 如何根据 serverRef.type 选择传输类型？
 
 **答案**：
 
-**PKCE (Proof Key for Code Exchange)** 作用：
+| type | 传输类 | 适用场景 |
+|------|--------|---------|
+| `sse` | SSEClientTransport | 远程 MCP 服务器 |
+| `sse-ide` | SSEClientTransport | IDE 插件 |
+| `stdio` | StdioClientTransport | 本地 npx 包 |
 
-1. **防止授权码拦截**：公共客户端无法保存 client_secret
-2. **代码交换验证**：通过 code_verifier 确保是同一客户端
+---
 
-```typescript
-// PKCE 流程
-const { codeVerifier, codeChallenge } = generatePKCEChallenge()
+### 练习 3：工具名称解析
 
-// 1. 授权请求包含 code_challenge
-GET /authorize?code_challenge=xxx&code_challenge_method=S256
+**问题**：`mcp__serverName__toolName` 格式的作用是什么？
 
-// 2. 交换 token 时提供 code_verifier
-POST /token
-{
-  code: "xxx",
-  code_verifier: "yyy"  // 服务器验证 S256(code_verifier) === code_challenge
-}
-```text
-
-**Java 对比**：类似于 OAuth 2.0 的 Authorization Code Flow with PKCE。
+**答案**：
+1. 区分不同 MCP 服务器的同名工具
+2. 在权限检查时通过 `mcpInfo` 识别服务器来源
+3. 支持 MCP 工具覆盖内置工具（skip-prefix 模式）
 
 ---
 
@@ -440,41 +314,22 @@ POST /token
 
 | 练习 | 核心答案 |
 |------|---------|
-| 1 | MCP=外部进程+JSON-RPC，内置=直接调用 |
-| 2 | Stdio=本地低延迟，HTTP=远程访问 |
-| 3 | 连接时发送 list_tools 请求，自动发现 |
-| 4 | 服务器请求用户输入，显示对话框 |
-| 5 | PKCE 防止授权码拦截，验证客户端身份 |
+| 练习 1 | 连接 → fetchToolsForClient → 构建 MCPTool → tool_use → JSON-RPC |
+| 练习 2 | 根据 serverRef.type 选择 SSE/Stdio 传输 |
+| 练习 3 | 区分服务器来源，支持工具覆盖 |
 
 ---
 
-## 附录：MCP 协议消息类型
+## 关键源码文件索引
 
-| 消息类型 | 方向 | 说明 |
-|---------|------|------|
-| `initialize` | C→S | 初始化连接 |
-| `initialized` | S→C | 初始化完成 |
-| `tools/list` | C→S | 查询工具列表 |
-| `tools/call` | C→S | 调用工具 |
-| `tools/list_changed` | S→C | 工具列表变更 |
-| `elicitation` | S→C | 请求用户输入 |
-
----
-
-## 7. 关键源码文件索引
-
-| 文件 | 关键函数/类 | 说明 |
-|------|-----------|------|
-| `src/services/mcp/types.ts` | `MCPConnectionConfig` | 连接配置类型 |
-| `src/services/mcp/mcpCore.ts` | `connectToMCPServer()` | 连接初始化 |
-| `src/services/mcp/mcpCore.ts` | `discoverMCPTools()` | 工具发现 |
-| `src/services/mcp/transport/` | `createTransport()` | 传输层工厂 |
-| `src/services/mcp/transport/stdio.ts` | `StdioTransport` | stdio 传输 |
-| `src/services/mcp/transport/http.ts` | `HttpTransport` | HTTP 传输 |
-| `src/tools/MCPTool/MCPTool.ts` | `MCPTool` | MCP 工具桥接类 |
-| `src/services/mcp/elicitation.ts` | `handleElicitationRequest()` | Elicitation 处理 |
-| `src/services/mcp/oauth.ts` | `performMCP OAuthFlow()` | OAuth 认证 |
-| `src/services/mcp/policyFilter.ts` | `filterByPolicy()` | 企业策略过滤 |
+| 文件 | 关键函数 | 说明 |
+|------|---------|------|
+| `src/services/mcp/client.ts` | `connectToServer()` | 连接初始化 |
+| `src/services/mcp/client.ts` | `fetchToolsForClient()` | 工具发现 |
+| `src/services/mcp/client.ts` | `getMcpToolsCommandsAndResources()` | 获取工具和资源 |
+| `src/tools/MCPTool/MCPTool.ts` | `MCPTool` 模板 | 工具桥接模板 |
+| `src/services/mcp/elicitationHandler.ts` | `handleElicitationRequest()` | Elicitation 处理 |
+| `src/services/mcp/auth.ts` | `ClaudeAuthProvider` | OAuth 认证 |
 
 ---
 

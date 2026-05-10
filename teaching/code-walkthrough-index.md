@@ -129,10 +129,10 @@ A13-TypeScript实战 (实战技巧)
 
 | 代码段 | 文件 | 说明 |
 |--------|------|------|
-| `connectToMCPServer()` | `src/services/mcp/mcpCore.ts:50` | 连接初始化 |
-| `discoverMCPTools()` | `src/services/mcp/mcpCore.ts:150` | 工具发现 |
-| `createTransport()` | `src/services/mcp/transport/index.ts:30` | 传输层工厂 |
-| `handleElicitationRequest()` | `src/services/mcp/elicitation.ts:50` | Elicitation 处理 |
+| `connectToServer()` | `src/services/mcp/client.ts:595` | 连接初始化 |
+| `fetchToolsForClient()` | `src/services/mcp/client.ts:1743` | 工具发现 |
+| `getMcpToolsCommandsAndResources()` | `src/services/mcp/client.ts:2226` | 获取工具和资源 |
+| `createLinkedTransportPair()` | `src/services/mcp/InProcessTransport.ts:57` | 传输层工厂 |
 
 ---
 

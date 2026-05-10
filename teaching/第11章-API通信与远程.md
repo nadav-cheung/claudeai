@@ -358,7 +358,7 @@ console.log('OAuth callback received:', callback.code)
 
 **答案**：
 
-```
+```text
 REPL.tsx → createUserMessage()
   → query.ts / QueryEngine.ts
   → claude.ts → createMessageStream()

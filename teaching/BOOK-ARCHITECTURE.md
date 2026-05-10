@@ -287,13 +287,13 @@ graph TD
 | 第 05 章 | `src/utils/permissions/permissions.ts` | hasPermissionsToUseTool(), checkRuleBasedPermissions() | 50, 100 |
 | | `src/utils/permissions/bashClassifier.ts` | classifyBashCommand() | 30 |
 | | `src/utils/permissions/denialTracking.ts` | shouldFallbackToPrompting() | 40 |
-| 第 06 章 | `src/services/compact/compact.ts` | compactConversation() | 100 |
+| 第 06 章 | `src/services/compact/compact.ts` | compactConversation() | 387 |
 | | `src/services/compact/grouping.ts` | groupMessagesByApiRound() | 30 |
 | | `src/services/compact/microCompact.ts` | applyMicroCompaction() | 60 |
 | | `src/services/compact/sessionMemoryCompact.ts` | trySessionMemoryCompaction() | 90 |
-| 第 07 章 | `src/services/mcp/mcpCore.ts` | connectToMCPServer(), discoverMCPTools() | 50, 150 |
-| | `src/services/mcp/transport/index.ts` | createTransport() | 30 |
-| | `src/services/mcp/elicitation.ts` | handleElicitationRequest() | 50 |
+| 第 07 章 | `src/services/mcp/client.ts` | connectToServer() | 595 |
+| | `src/services/mcp/client.ts` | fetchToolsForClient() | 1743 |
+| | `src/services/mcp/client.ts` | getMcpToolsCommandsAndResources() | 2226 |
 | 第 08 章 | `src/tools/AgentTool/AgentTool.tsx` | AgentTool.call() | 200 |
 | | `src/tools/AgentTool/runAgent.ts` | runAgent() | 306 |
 | | `src/tools/AgentTool/forkSubagent.ts` | buildForkedMessages() | 466 |
@@ -313,10 +313,10 @@ graph TD
 |------|----------|------|
 | 工具执行入口 | `src/services/tools/toolExecution.ts:337` | runToolUse() |
 | 权限检查 | `src/utils/permissions/permissions.ts:50` | hasPermissionsToUseTool() |
-| 上下文压缩 | `src/services/compact/compact.ts:100` | compactConversation() |
+| 上下文压缩 | `src/services/compact/compact.ts:387` | compactConversation() |
 | Agent 协作 | `src/tools/AgentTool/AgentTool.tsx:200` | AgentTool.call() |
 | API 调用 | `src/services/api/claude.ts:100` | createMessageStream() |
-| MCP 连接 | `src/services/mcp/mcpCore.ts:50` | connectToMCPServer() |
+| MCP 连接 | `src/services/mcp/client.ts:595` | connectToServer() |
 
 ### 5.3 工具注册表
 
