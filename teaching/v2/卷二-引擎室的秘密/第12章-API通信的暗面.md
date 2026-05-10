@@ -307,6 +307,96 @@ allowlist *.anthropic.com. Run /doctor for details.
 
 ---
 
+## 四张入场券：认证方式的取舍
+
+在深入错误处理之前，我们还没聊过一个问题：你的请求到底是怎么证明"我是合法用户"的？
+
+Claude Code 支持四种认证方式，每种对应不同的使用场景：
+
+| 方式 | 配置 | 适用场景 |
+|------|------|---------|
+| API Key | `ANTHROPIC_API_KEY` 环境变量 | 直连 Anthropic API，开发者最常用 |
+| OAuth | 浏览器交互式授权 | Claude.ai 订阅用户（Max/Pro） |
+| AWS Bedrock | `CLAUDE_CODE_USE_BEDROCK=1` | AWS 企业用户，模型部署在 Bedrock 上 |
+| Google Vertex | `CLAUDE_CODE_USE_VERTEX=1` | GCP 企业用户，模型部署在 Vertex AI 上 |
+
+认证方式的优先级是确定的：如果你同时设置了 `ANTHROPIC_API_KEY` 和 Bedrock/Vertex 的环境变量，SDK 会根据配置决定走哪条路。但 OAuth 和 API Key 是互斥的——OAuth 流程会生成并缓存一个临时 API Key，如果已存在有效的 OAuth token，就直接用它。
+
+对于企业用户来说，Bedrock 和 Vertex 模式意味着请求根本不到 Anthropic 的服务器——流量留在你自己的云账号里。这对合规性要求高的场景（金融、医疗）至关重要。
+
+### OAuth PKCE：不用密码也能证明你是你
+
+如果你是 Claude.ai 的订阅用户，Claude Code 不会让你把密码输进终端。它用的是 **OAuth PKCE**（Proof Key for Code Exchange）流程——一种专为命令行工具设计的授权方式。
+
+PKCE 的精妙之处在于：你的终端**永远不接触密码**。整个流程通过一个临时的"暗号"（code_verifier / code_challenge）在 CLI、浏览器和 OAuth 服务器之间建立信任。
+
+```mermaid
+sequenceDiagram
+    participant CLI
+    participant Browser
+    participant OAuth as OAuth Server
+
+    CLI->>OAuth: 1. 生成 code_verifier, code_challenge
+    CLI->>Browser: 2. 打开授权页面（携带 code_challenge）
+    Browser->>OAuth: 3. 用户在浏览器中登录并授权
+    OAuth-->>Browser: 4. 重定向到 localhost 回调地址（携带 code）
+    Browser->>CLI: 5. 本地回调服务器收到 code
+    CLI->>OAuth: 6. 用 code + code_verifier 交换 token
+    OAuth-->>CLI: 7. 返回 access_token 和 refresh_token
+```
+
+七个步骤，环环相扣：
+
+1. **CLI 生成暗号对**：`code_verifier` 是一个随机字符串，`code_challenge` 是它的 SHA-256 哈希。CLI 把 `code_verifier` 藏好不发送，只把 `code_challenge` 带上。
+2. **打开浏览器**：CLI 在本地启动一个临时 HTTP 服务器（端口 3100-3200），然后打开浏览器跳转到 Anthropic 的授权页面。
+3. **用户授权**：你在浏览器里登录 Anthropic 账号，确认授权。这一步和你授权第三方应用访问 Google 账号一样。
+4. **OAuth 重定向**：授权成功后，OAuth 服务器把你重定向回 `localhost:xxxx/callback?code=xxx`。
+5. **CLI 收到 code**：本地回调服务器捕获这个请求，提取 `code` 参数。
+6. **用暗号换 token**：CLI 把 `code` 和一直藏着的 `code_verifier` 一起发给 OAuth 服务器。服务器验证 `code_verifier` 的哈希是否等于之前的 `code_challenge`——如果匹配，说明请求确实来自同一个 CLI，不是被中间人截获的。
+7. **拿到 token**：服务器返回 `access_token`（短期有效）和 `refresh_token`（长期有效，用于续期）。CLI 把它们安全存储到系统 Keychain（macOS）或加密存储（Linux/Windows）。
+
+为什么这么复杂？因为 CLI 工具没有"回调 URL"——你不可能给终端注册一个 `https://my-cli-app.com/callback`。PKCE 解决了这个问题：不需要预注册回调 URL，也不需要 client secret，只需一个一次性的暗号对就能防止授权码被截获。
+
+---
+
+## 远程会话：不在本地也能用
+
+到目前为止，我们假设 Claude Code 就运行在你的本地终端里。但实际场景要复杂得多——你可能在 SSH 到远程服务器上运行，在 IDE 里通过插件调用，或者通过一个 URL 直接连接到远程的 Claude Code 实例。
+
+Claude Code 支持三种远程连接模式：
+
+| 模式 | 连接方式 | 典型场景 |
+|------|---------|---------|
+| **RemoteSession** | SSH / WebSocket | 在远程服务器上运行 Claude Code，本地终端作为前端 |
+| **Bridge** | IDE 插件通信 | VS Code / JetBrains 插件调用 Claude Code，双向消息传递 |
+| **Direct Connect** | URL 直连 | 通过 `claude connect <url>` 直接连接到远程实例 |
+
+### 架构拓扑
+
+```mermaid
+graph TB
+    subgraph "本地交互"
+        A[REPL] --> B[claude.ts]
+    end
+
+    subgraph "远程交互"
+        C[RemoteSession] --> B
+        D[Bridge/IDE] --> B
+        E[DirectConnect] --> B
+    end
+
+    B --> F[Anthropic API]
+    B --> G[OAuth]
+```
+
+三种模式最终都汇聚到同一个 API 通信层——就是我们在这一章里分析的那些代码。不管是本地 REPL 发出的请求，还是 Bridge 转发的请求，都会走 `createMessageStream()` → `withRetry()` → 指数退避这一套流程。
+
+这意味着错误处理逻辑也是统一的：远程会话遇到 529 过载，同样会触发模型降级；Bridge 模式遇到 SSL 错误，同样会给出企业代理的修复建议。远程模式不需要单独实现一套重试逻辑——它复用了本地的全部通信基础设施。
+
+关键区别在于**连接层本身的可靠性**。RemoteSession 和 Bridge 模式在网络断开时需要额外的重连机制，这是在传输层（SSH/WebSocket）处理的，不属于 API 重试的范畴。Direct Connect 模式最简单——它只是把远程实例的输出流转发到本地终端，相当于一个远程查看器。
+
+---
+
 ## 对比Java
 
 如果你写过 Java，可能用过 **Resilience4j** 或 **Spring Retry** 来做类似的事情。让我们对比一下。
@@ -468,6 +558,8 @@ export API_TIMEOUT_MS=1200000  # 20 分钟
 4. **529 Overloaded** 有专门的处理：前台任务才重试，连续 3 次触发模型降级，后台任务直接放弃。
 5. **SSL 错误**有专门的诊断链——沿着 cause 链找到底层错误代码，给出具体的修复建议。
 6. **错误消息**区分交互/非交互模式，过滤 HTML 内容，确保用户看到的不是一堆堆栈跟踪。
+7. **四种认证方式**（API Key / OAuth / Bedrock / Vertex）覆盖了从个人开发者到企业合规的全部场景，OAuth PKCE 流程通过暗号对在 CLI 和浏览器之间建立信任。
+8. **三种远程模式**（RemoteSession / Bridge / Direct Connect）复用了同一套 API 通信基础设施，错误处理逻辑天然统一。
 
 对比 Java 的 Resilience4j，Claude Code 的方案更"手工"但更灵活——所有决策逻辑集中在一个函数里，方便快速迭代。
 
