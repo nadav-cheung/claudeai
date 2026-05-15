@@ -79,7 +79,7 @@ query() 调用前的准备阶段
 `getSystemPrompt()` 返回一个字符串数组，每个元素是一个 prompt section：
 
 ```typescript
-// → src/constants/prompts.ts 的 getSystemPrompt() 函数（简化版）
+// → src/constants/prompts.ts 的 getSystemPrompt() 函数（简化版，上半部分）
 export async function getSystemPrompt(
   tools: Tools,
   model: string,
@@ -98,36 +98,14 @@ export async function getSystemPrompt(
     computeSimpleEnvInfo(model, additionalWorkingDirectories),
   ])
 
-  // 组装动态 sections（注册表管理）
-  const dynamicSections = [
-    systemPromptSection('session_guidance', () => getSessionSpecificGuidanceSection(...)),
-    systemPromptSection('memory', () => loadMemoryPrompt()),
-    systemPromptSection('ant_model_override', () => getAntModelOverrideSection()),
-    systemPromptSection('env_info_simple', () => computeSimpleEnvInfo(...)),
-    systemPromptSection('language', () => getLanguageSection(...)),
-    systemPromptSection('output_style', () => getOutputStyleSection(...)),
-    DANGEROUS_uncachedSystemPromptSection('mcp_instructions', () => getMcpInstructionsSection(...)),
-    systemPromptSection('scratchpad', () => getScratchpadInstructions()),
-    systemPromptSection('frc', () => getFunctionResultClearingSection(model)),
-    systemPromptSection('summarize_tool_results', () => SUMMARIZE_TOOL_RESULTS_SECTION),
-    // feature-gated sections...
-  ]
+  // ... 继续下一段
+```
 
-  // Proactive/KAIROS 模式：完全不同的 system prompt 结构
-  if (proactiveModule?.isProactiveActive()) {
-    return [
-      '\nYou are an autonomous agent...',
-      getSystemRemindersSection(),
-      await loadMemoryPrompt(),
-      envInfo,
-      getLanguageSection(settings.language),
-      getMcpInstructionsSection(mcpClients),
-      getScratchpadInstructions(),
-      getFunctionResultClearingSection(model),
-      SUMMARIZE_TOOL_RESULTS_SECTION,
-      getProactiveSection(),
-    ].filter(s => s !== null)
-  }
+上半部分展示了函数签名、`--bare` 模式的快速返回、以及三个资源的并行加载。下半部分展示返回值的组装——注意静态区和动态区之间的缓存边界标记：
+
+```typescript
+// → getSystemPrompt() 返回值组装（下半部分）
+  // Proactive/KAIROS 模式有完全不同的 prompt 结构，此处省略
 
   return [
     // --- 静态内容（可缓存）---

@@ -135,69 +135,36 @@ queryLoop(params):
 `queryLoop` 是 Claude Code 的心脏。它是一个 `while (true)` 循环，每轮执行以下步骤：
 
 ```typescript
-// → src/query.ts 的 queryLoop() 函数（简化版）
+// → src/query.ts 的 queryLoop() 函数（简化版，聚焦核心结构）
 async function* queryLoop(params, consumedCommandUuids) {
-  // 不可变参数（循环期间不变）
-  const { systemPrompt, userContext, systemContext, canUseTool, maxTurns } = params
   const deps = params.deps ?? productionDeps()
-
-  // 可变状态（每轮更新）
   let state: State = {
     messages: params.messages,
     toolUseContext: params.toolUseContext,
     turnCount: 1,
     maxOutputTokensRecoveryCount: 0,
     hasAttemptedReactiveCompact: false,
-    // ...
   }
 
   while (true) {
-    // 每轮开始时解构状态
-    let { toolUseContext } = state
-    const { messages, turnCount, ... } = state
-
-    // === 步骤 1-4：上下文管理 ===
-    // 步骤 1: 工具结果预算（applyToolResultBudget）
-    // 步骤 2: Snip 压缩（裁剪旧工具结果）
-    // 步骤 3: Microcompact（小范围缓存编辑）
-    // 步骤 4: Autocompact（大范围摘要压缩）
+    // ... (上下文管理见上文骨架：步骤 1-4)
 
     // === 步骤 5：API 调用 ===
     for await (const message of deps.callModel({
       messages: prependUserContext(messagesForQuery, userContext),
       systemPrompt: fullSystemPrompt,
       tools: toolUseContext.options.tools,
-      // ...
     })) {
-      // 处理每个流式事件
       if (message.type === 'assistant') {
-        assistantMessages.push(message)
-        // 检查是否有 tool_use blocks
         const toolBlocks = message.message.content.filter(c => c.type === 'tool_use')
-        if (toolBlocks.length > 0) {
-          toolUseBlocks.push(...toolBlocks)
-          needsFollowUp = true  // 标记需要工具执行
-        }
+        if (toolBlocks.length > 0) needsFollowUp = true
       }
       yield message  // 转发给 UI 层渲染
     }
 
-    // === 步骤 6：工具执行 ===
-    // （如果 needsFollowUp，执行工具，见第 8 章）
-
-    // === 步骤 7-9：循环控制 ===
-    // 如果没有工具调用 → 循环结束
-    if (!needsFollowUp) {
-      // 处理 stop hooks、返回最终结果
-      return { reason: 'end_turn' }
-    }
-
-    // 更新状态，进入下一轮
-    state = {
-      ...state,
-      messages: [...messages, ...assistantMessages, ...toolResults],
-      turnCount: turnCount + 1,
-    }
+    // === 步骤 6-9：工具执行 & 循环控制 ===
+    if (!needsFollowUp) return { reason: 'end_turn' }
+    state = { ...state, messages: [...messages, ...toolResults], turnCount: turnCount + 1 }
   }
 }
 ```

@@ -233,37 +233,26 @@ export function getAllBaseTools(): Tools {
   return [
     // === 核心工具（始终存在）===
     AgentTool,               // 子代理
-    TaskOutputTool,          // 后台任务输出
     BashTool,                // Shell 命令
     FileReadTool,            // 读文件
     FileEditTool,            // 编辑文件
     FileWriteTool,           // 写文件
     NotebookEditTool,        // Jupyter notebook
-    WebFetchTool,            // 网页获取
-    TodoWriteTool,           // Todo 列表
-    WebSearchTool,           // 网页搜索
-    TaskStopTool,            // 停止后台任务
-    AskUserQuestionTool,     // 向用户提问
-    SkillTool,               // 技能系统
-    EnterPlanModeTool,       // 进入计划模式
-    getSendMessageTool(),    // 发消息给子代理
-    BriefTool,               // Brief 模式
 
-    // === 条件工具 ===
-    ...(hasEmbeddedSearchTools() ? [] : [GlobTool, GrepTool]),
-    ...(process.env.USER_TYPE === 'ant' ? [ConfigTool] : []),
+    // === 更多工具 ===
+    // TaskOutputTool, TodoWriteTool, WebFetchTool, WebSearchTool,
+    // TaskStopTool, AskUserQuestionTool, SkillTool, EnterPlanModeTool, ...
+    // 每个工具都有条件启用逻辑
+
+    // === 条件工具（feature flag 控制）===
+    ...(hasEmbeddedSearchTools() ? [] : [GlobTool, GrepTool]),  // 内嵌搜索替代
     ...(isWorktreeModeEnabled() ? [EnterWorktreeTool, ExitWorktreeTool] : []),
     ...(isAgentSwarmsEnabled() ? [TeamCreateTool, TeamDeleteTool] : []),
     ...(SleepTool ? [SleepTool] : []),           // KAIROS/PROACTIVE feature
     ...cronTools,                                 // AGENT_TRIGGERS feature
     ...(ToolSearchTool ? [ToolSearchTool] : []),  // Dynamic Tool Search
 
-    // MCP 工具接口
-    ListMcpResourcesTool,
-    ReadMcpResourceTool,
-
-    // === 测试专用 ===
-    ...(process.env.NODE_ENV === 'test' ? [TestingPermissionTool] : []),
+    // ... 其余 20+ 个工具按类似模式注册
   ]
 }
 ```

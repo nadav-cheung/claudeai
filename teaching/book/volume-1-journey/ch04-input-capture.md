@@ -90,7 +90,7 @@ Claude Code 的输入处理遵循这个模式：`PromptInput` 组件负责渲染
 当 REPL 启动后，Ink 渲染的第一个交互组件是 `PromptInput`：
 
 ```
-// → src/components/PromptInput/PromptInput.tsx
+// → src/components/PromptInput/PromptInput.tsx 的 PromptInput 组件
 ```
 
 这个组件用 Ink 的 `useInput` hook 捕获按键事件。它负责：

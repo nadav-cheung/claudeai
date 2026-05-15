@@ -88,7 +88,7 @@ Claude Code 大量使用 `async/await`，因为几乎所有操作（API 调用�
 Claude Code 用 Bun 打包，有一个特殊能力：`feature()` 函数。
 
 ```typescript
-// → src/entrypoints/cli.tsx
+// → src/entrypoints/cli.tsx 的 feature() 导入
 import { feature } from 'bun:bundle'
 ```
 
@@ -293,7 +293,7 @@ for await (const event of query({
 
 | 位置 | 看什么 |
 |------|--------|
-| `cli.tsx` 的 `main()` 函数 | `main()` 函数入口，看参数解析 |
+| `cli.tsx` 的 `main()` 函数 | `main()` 函数入口——看参数解析 |
 | `cli.tsx` 的完整 CLI 加载 | 快速路径都不匹配，进入完整 CLI |
 | `main.tsx` 的模块级代码 | 模块级代码——看并行预读取启动 |
 | `init.ts` 的 `init()` 函数 | `init()` 函数——看一次性初始化 |
