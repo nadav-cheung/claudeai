@@ -178,21 +178,21 @@ Prompt Cache 的前缀匹配约束了 system prompt 的架构（静态区在前�
 
 ### 基础理解（每题对应一站）
 
-1. **入口**：`cli.tsx` 的 `main()` 函数为什么用 `await import(...)` 而不是静态 import？
-2. **消息**：画出 `processUserInput → processTextPrompt → createUserMessage` 的调用链，标出每步的输入和输出类型
-3. **System Prompt**：为什么静态区在前、动态区在后？如果反过来会怎样？
-4. **工具注册**：`buildTool()` 工厂函数为哪些字段提供了默认值？为什么 `isReadOnly` 默认是 `false`？
-5. **API 调用**：用伪代码写出 `queryLoop` 的骨架（提示：while(true) 里有 9 步）
-6. **工具执行**：StreamingToolExecutor 的并发分区算法如何判断两个工具能否并行执行？
-7. **循环状态**：三阶段错误恢复的成本分别是什么？为什么 `hasAttemptedReactiveCompact` 只允许尝试一次？
-8. **渲染**：Ink 的双层帧缓冲解决了什么问题？如果没有 Diff 引擎会怎样？
-9. **权限**：画出 `hasPermissionsToUseToolInner` 的 Step 1 → Step 2 → Step 3 流程图
+1. **入口**（参考：ch03）：`cli.tsx` 的 `main()` 函数为什么用 `await import(...)` 而不是静态 import？
+2. **消息**（参考：ch04）：画出 `processUserInput → processTextPrompt → createUserMessage` 的调用链，标出每步的输入和输出类型
+3. **System Prompt**（参考：ch05）：为什么静态区在前、动态区在后？如果反过来会怎样？
+4. **工具注册**（参考：ch06）：`buildTool()` 工厂函数为哪些字段提供了默认值？为什么 `isReadOnly` 默认是 `false`？
+5. **API 调用**（参考：ch07）：用伪代码写出 `queryLoop` 的骨架（提示：while(true) 里有 9 步）
+6. **工具执行**（参考：ch08）：StreamingToolExecutor 的并发分区算法如何判断两个工具能否并行执行？
+7. **循环状态**（参考：ch09）：三阶段错误恢复的成本分别是什么？为什么 `hasAttemptedReactiveCompact` 只允许尝试一次？
+8. **渲染**（参考：ch10）：Ink 的双层帧缓冲解决了什么问题？如果没有 Diff 引擎会怎样？
+9. **权限**（参考：ch11）：画出 `hasPermissionsToUseToolInner` 的 Step 1 → Step 2 → Step 3 流程图
 
 ### 综合思考（跨站）
 
-10. 如果要给 Claude Code 添加一个新工具，最少需要修改哪几个文件？
-11. Prompt Cache 的前缀匹配约束如何影响了 system prompt 的架构设计？
-12. `yield*` 在 `query() → queryLoop() → queryModelWithStreaming()` 三层传播中的作用是什么？如果改成普通 `return` 会怎样？
+10. （参考：ch06 + ch08）如果要给 Claude Code 添加一个新工具，最少需要修改哪几个文件？
+11. （参考：ch05 + ch07）Prompt Cache 的前缀匹配约束如何影响了 system prompt 的架构设计？
+12. （参考：ch07）`yield*` 在 `query() → queryLoop() → queryModelWithStreaming()` 三层传播中的作用是什么？如果改成普通 `return` 会怎样？
 
 ---
 
