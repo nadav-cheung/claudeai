@@ -42,7 +42,7 @@ graph TB
 ### 用一行伪代码串联
 
 ```typescript
-// 完整的 Agentic Loop，一行版本
+// 完整的 Agentic Loop（智能体循环），一行版本
 cli() → main() → REPL() → for await (event of query(userMessage)) → Ink.render(event)
 
 // 展开的版本
@@ -119,7 +119,7 @@ CLAUDE.md：Local > Project > User > Managed。
 
 ### 4. 缓存驱动设计
 
-Prompt Cache 的前缀匹配约束了 system prompt 的架构（静态区在前，动态区在后）。工具列表排序保证缓存稳定。整个核心循环的设计都受缓存经济学影响。
+Prompt Cache 的前缀匹配约束了 system prompt 的架构（静态区在前，动态区在后）。工具列表排序保证缓存稳定。整个 Agentic Loop 的设计都受缓存经济学影响。
 
 ### 5. 防御性默认值
 

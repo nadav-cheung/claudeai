@@ -16,10 +16,18 @@ graph LR
     Q --> R["⑥ 渲染"]
     Q --> S["⑦ 状态<br/>⬅ 你在这里"]
 
+    style E fill:#e8f5e9
+    style I fill:#e8f5e9
+    style Q fill:#fff3e0
+    style P fill:#fce4ec
+    style T fill:#f3e5f5
+    style R fill:#e0f2f1
     style S fill:#FFD54F,stroke:#F57F17,color:#000
 ```
 
 前两章追踪了 API 调用和工具执行。现在看 `queryLoop` 的循环控制和状态管理——它怎么决定继续还是停止、怎么处理错误恢复。
+
+> **阅读建议**：本章涉及多层错误恢复策略（Collapse drain → Reactive Compact → Token 升级），建议先理解 9.2 的退出条件，再逐阶段看恢复逻辑。三阶段按成本从低到高排列，每阶段只在前一阶段不够时触发。
 
 > **与 ch07 的关系**：ch07 介绍了四层压缩管线（Tool Result Budget → Snip → Microcompact → Autocompact），它在每轮 API 调用**之前**执行，目的是预防上下文溢出。本章描述的是循环**退出时**的错误恢复——当 API 调用已经失败后的补救措施。两者互补：ch07 是"预防"，本章是"治疗"。
 

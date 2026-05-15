@@ -26,7 +26,7 @@ graph LR
     style S fill:#fff8e1
 ```
 
-现在我们到达了 Claude Code 的核心——**Agentic Loop** 本身。上一章准备好了 system prompt 和工具列表，本章追踪 API 调用：消息怎么发送给模型、流式响应怎么处理、循环怎么运转。
+现在我们到达了 Claude Code 的核心——**Agentic Loop（智能体循环）** 本身。上一章准备好了 system prompt 和工具列表，本章追踪 API 调用：消息怎么发送给模型、流式响应怎么处理、循环怎么运转。
 
 > **阅读建议**：本章是全书信息密度最高的一章，涉及 AsyncGenerator、流式响应、上下文压缩等概念。建议先通读一遍建立整体印象，再逐段精读。
 
@@ -36,7 +36,7 @@ graph LR
 
 如果你已经熟悉 `async function*` 和 `yield*`，跳过本节。
 
-Claude Code 的核心循环使用 AsyncGenerator（异步生成器）：
+Claude Code 的 Agentic Loop 使用 AsyncGenerator（异步生成器）：
 
 ```typescript
 // 异步生成器：可以 yield 多个值，每个值异步产出

@@ -31,7 +31,7 @@ Anthropic 定义的开放协议，允许外部工具服务器通过标准接口�
 工具的元数据属性，标记该工具是否可与其他工具并发执行；文件写入等有副作用的工具标记为 `false`，必须串行。
 
 ### PermissionMode（权限模式）
-Claude Code 的安全分级机制，包括 `default`（询问）、`plan`（只读）、`auto-accept`（自动批准）等模式，控制工具执行的审批流程。
+Claude Code 的安全分级机制，包括 `default`（询问）、`plan`（只读）、`auto`（AI 分类器自动决定）等模式，控制工具执行的审批流程。
 
 ### feature() 编译时消除
 在打包阶段通过 Babel 插件将 `feature("flag")` 调用替换为布尔常量，未启用的功能分支在产物中被完全移除（dead code elimination）。
@@ -42,8 +42,8 @@ Claude Code 的安全分级机制，包括 `default`（询问）、`plan`（只�
 ### GrowthBook
 开源特性开关（feature flag）平台，Claude Code 通过其 SDK 获取实验分组和功能开关状态，实现灰度发布和 A/B 测试。
 
-### Snip / Microcompact / Autocompact（三层压缩）
-上下文管理的三个递进策略：Snip 裁剪单条过长消息，Microcompact 在流式循环末尾轻量压缩，Autocompact 在上下文即将溢出时进行完整重写。
+### Tool Result Budget / Snip / Microcompact / Autocompact（四层压缩管线）
+上下文管理的四个递进策略：Tool Result Budget 裁剪过大的工具输出（零成本），Snip 用轻量摘要替换旧工具结果（极低成本），Microcompact 在流式循环末尾轻量压缩（低成本），Autocompact 在上下文即将溢出时调用模型进行完整摘要压缩（高成本）。每层在前一层不够时触发。
 
 ### Context Collapse drain
 上下文超过阈值时触发的"排水"操作：将对话历史压缩为摘要后清空原始消息，释放 token 预算以继续对话。

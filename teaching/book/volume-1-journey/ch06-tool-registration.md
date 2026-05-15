@@ -10,7 +10,7 @@
 ```mermaid
 graph LR
     E["① 入口"] --> I["② 消息"]
-    I --> Q["③ 查询引擎"]
+    I --> Q["③ 查询引擎<br/>⬅ 你在这里"]
     Q --> P["④ 权限"]
     P --> T["⑤ 工具执行"]
     T --> Q
@@ -19,8 +19,8 @@ graph LR
 
     style E fill:#e8f5e9
     style I fill:#e8f5e9
-    style Q fill:#fff3e0
-    style P fill:#FFD54F,stroke:#F57F17,color:#000
+    style Q fill:#FFD54F,stroke:#F57F17,color:#000
+    style P fill:#fce4ec
     style T fill:#f3e5f5
     style R fill:#e0f2f1
     style S fill:#fff8e1
