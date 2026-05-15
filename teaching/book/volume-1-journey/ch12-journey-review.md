@@ -158,17 +158,41 @@ Prompt Cache 的前缀匹配约束了 system prompt 的架构（静态区在前�
 
 ---
 
-## 卷一检查点总复习
+## 推荐重读路线
 
-- **ch03**：入口点是 `cli.tsx` → `main.tsx`，支持 5 种运行模式（REPL、单次、管道、SDK、SDK Agent）
-- **ch04**：输入管线 `PromptInput → processUserInput → processTextPrompt → createUserMessage`
-- **ch05**：System Prompt 两区架构（静态缓存区 + 动态区），CLAUDE.md 四级加载
-- **ch06**：Tool 接口统一设计，`buildTool` 工厂，工具过滤和排序
-- **ch07**：`query()` AsyncGenerator，`queryLoop()` 九步 while(true) 循环，四层上下文压缩
-- **ch08**：StreamingToolExecutor 并发分区（安全并行、非安全串行），预测性工具执行
-- **ch09**：State 不可变更新，三阶段错误恢复（Collapse drain → Reactive Compact → Token 升级）
-- **ch10**：Ink 帧渲染管线（React → Yoga → Screen → Diff → ANSI），双层帧缓冲
-- **ch11**：分层权限检查（deny > ask > allow），Bash AST 安全分析，AI 分类器
+第一遍通读建立了整体印象，第二遍可以按兴趣选择重点路线：
+
+| 兴趣方向 | 推荐路线 | 为什么 |
+|----------|---------|--------|
+| 工具系统 | ch06 → ch08 → ch07 | 先理解工具注册，再看执行，最后理解循环中的工具调度 |
+| 安全架构 | ch11 → ch08 → ch09 | 权限是核心防线，工具执行是应用点，状态管理是兜底策略 |
+| 性能优化 | ch03 → ch07 → ch10 | 启动并行化、流式响应、帧渲染管线——三个最明显的优化点 |
+| 想做贡献 | ch03 → ch04 → ch07 → ch08 → ch12 | 按数据流顺序精读核心路径，理解完整生命周期 |
+| AI 工程模式 | ch07 → ch09 → ch05 | Agentic Loop、上下文管理、Prompt 工程——通用的 AI Agent 设计模式 |
+
+---
+
+## 卷一自测题
+
+不看书回答以下问题，检验你是否真正理解了各站的核心概念：
+
+### 基础理解（每题对应一站）
+
+1. **入口**：`cli.tsx` 的 `main()` 函数为什么用 `await import(...)` 而不是静态 import？
+2. **消息**：画出 `processUserInput → processTextPrompt → createUserMessage` 的调用链，标出每步的输入和输出类型
+3. **System Prompt**：为什么静态区在前、动态区在后？如果反过来会怎样？
+4. **工具注册**：`buildTool()` 工厂函数为哪些字段提供了默认值？为什么 `isReadOnly` 默认是 `false`？
+5. **API 调用**：用伪代码写出 `queryLoop` 的骨架（提示：while(true) 里有 9 步）
+6. **工具执行**：StreamingToolExecutor 的并发分区算法如何判断两个工具能否并行执行？
+7. **循环状态**：三阶段错误恢复的成本分别是什么？为什么 `hasAttemptedReactiveCompact` 只允许尝试一次？
+8. **渲染**：Ink 的双层帧缓冲解决了什么问题？如果没有 Diff 引擎会怎样？
+9. **权限**：画出 `hasPermissionsToUseToolInner` 的 Step 1 → Step 2 → Step 3 流程图
+
+### 综合思考（跨站）
+
+10. 如果要给 Claude Code 添加一个新工具，最少需要修改哪几个文件？
+11. Prompt Cache 的前缀匹配约束如何影响了 system prompt 的架构设计？
+12. `yield*` 在 `query() → queryLoop() → queryModelWithStreaming()` 三层传播中的作用是什么？如果改成普通 `return` 会怎样？
 
 ---
 
