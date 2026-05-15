@@ -235,7 +235,7 @@ graph TD
 BashTool 用两种机制判断命令是否只读：
 
 ```typescript
-// → src/tools/BashTool/readOnlyValidation.ts
+// → src/tools/BashTool/readOnlyValidation.ts 的 COMMAND_ALLOWLIST 和 READONLY_COMMAND_REGEXES
 
 // 机制 1：命令白名单（约 30 个命令，带 flag 验证）
 // COMMAND_ALLOWLIST: git, grep, sed, sort, ps, fd, tree, date 等

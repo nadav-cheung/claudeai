@@ -232,7 +232,7 @@ export const init = memoize(async () => {
 `main.tsx` 中导出的 `main()` 函数（从约第 585 行开始）是完整的 CLI 初始化流程：
 
 ```typescript
-// → src/main.tsx（简化版，展示核心步骤）
+// → src/main.tsx 的 main() 函数（简化版）
 export async function main() {
   // Step 1: 安全检查（Windows PATH 加固等）
   // Step 2: 解析 CLI 参数（Commander.js）

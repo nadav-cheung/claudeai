@@ -296,7 +296,7 @@ function MessageImpl({ message }) {
 `Ink` 类是渲染引擎的心脏。它管理 React Reconciler、Yoga 布局和帧缓冲：
 
 ```typescript
-// → src/ink/ink.tsx（简化版核心流程）
+// → src/ink/ink.tsx 的 Ink 类（简化版）
 class Ink {
   render(node: ReactNode): void {
     this.currentNode = node
@@ -382,7 +382,7 @@ onRender() {
 ### 10.7 Blit 优化：不变子树的快速复制
 
 ```typescript
-// → src/ink/render-node-to-output.ts（简化版）
+// → src/ink/render-node-to-output.ts 的 renderNodeToOutput() 函数（简化版）
 function renderNodeToOutput(node, output, options) {
   // 检查子树是否变化
   if (canBlit(node, options.prevScreen, nodeCache)) {
@@ -403,7 +403,7 @@ function renderNodeToOutput(node, output, options) {
 ### 10.8 OffscreenFreeze：滚动优化
 
 ```typescript
-// → src/components/OffscreenFreeze.tsx
+// → src/components/OffscreenFreeze.tsx 的 OffscreenFreeze 组件
 // 当消息滚出视口时，冻结其渲染
 // 防止计时器驱动的组件（spinner、时钟）触发不必要的终端更新
 ```

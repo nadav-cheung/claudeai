@@ -104,7 +104,7 @@ export async function getSystemPrompt(
 上半部分展示了函数签名、`--bare` 模式的快速返回、以及三个资源的并行加载。下半部分展示返回值的组装——注意静态区和动态区之间的缓存边界标记：
 
 ```typescript
-// → getSystemPrompt() 返回值组装（下半部分）
+// → src/constants/prompts.ts 的 getSystemPrompt() 返回值组装（下半部分）
   // Proactive/KAIROS 模式有完全不同的 prompt 结构，此处省略
 
   return [
