@@ -54,6 +54,36 @@ removeChildInstance(parent, child) // 移除子节点
 
 Claude Code 的 Ink 用 `react-reconciler` 创建了自定义 Reconciler，把 React 组件渲染到终端的虚拟 DOM 树上——每个节点有 Yoga 布局属性、文本内容、ANSI 样式。
 
+一个最小的自定义 Reconciler 示例：
+
+```typescript
+import ReactReconciler from 'react-reconciler'
+
+const hostConfig = {
+  createInstance(type, props) {
+    // 创建终端节点——返回一个虚拟 DOM 节点
+    return { type, props, children: [], text: '' }
+  },
+  appendChildInstance(parent, child) {
+    parent.children.push(child)
+  },
+  commitUpdate(instance, props) {
+    // 当 React 属性变化时，更新节点的文本或样式
+    instance.props = props
+    instance.text = props.children ?? ''
+  },
+  removeChildInstance(parent, child) {
+    parent.children = parent.children.filter(c => c !== child)
+  },
+  // ... 其他必要方法
+}
+
+const reconciler = ReactReconciler(hostConfig)
+// 现在 <Text color="green">Hello</Text> 会调用 createInstance('text', {color: 'green', children: 'Hello'})
+```
+
+Ink 的 Reconciler 比 this 复杂得多——它还需要处理 Yoga 布局计算、ANSI 样式转换、终端光标移动——但核心接口就是这几个方法。
+
 ---
 
 ## 源码入口

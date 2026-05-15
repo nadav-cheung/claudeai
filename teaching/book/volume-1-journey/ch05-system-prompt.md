@@ -312,6 +312,28 @@ Always add explicit return types to TypeScript functions.
 
 这条规则只在编辑 `src/` 或 `test/` 下的 `.ts` 文件时生效。
 
+**@include 嵌套示例**：
+
+```markdown
+# CLAUDE.md（项目根目录）
+Always follow the coding standards in @./docs/coding-standards.md
+Use the API patterns described in @./docs/api-patterns.md
+
+# docs/coding-standards.md
+## TypeScript Rules
+- Use strict mode
+- Prefer const over let
+See also: @./naming-conventions.md
+
+# docs/naming-conventions.md
+## Naming Conventions
+- camelCase for variables and functions
+- PascalCase for classes and interfaces
+- UPPER_SNAKE_CASE for constants
+```
+
+加载顺序：`naming-conventions.md` → `coding-standards.md` → `api-patterns.md` → `CLAUDE.md`。被 include 的文件总是排在 include 它的文件**之前**，这样外层文件的指令可以覆盖内层的默认值。循环引用会被自动检测并跳过。
+
 ### 5.6 getClaudeMds：格式化输出
 
 `getClaudeMds()` 把加载到的文件格式化为注入给模型的文本：
