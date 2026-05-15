@@ -79,7 +79,7 @@ query.ts 检测到 tool_use blocks
 上一章看到 `query.ts` 在流式循环中把 `tool_use` blocks 添加到 `StreamingToolExecutor`：
 
 ```typescript
-// → src/query.ts:838-845（简化版）
+// → src/query.ts 的 StreamingToolExecutor 调用（简化版）
 if (streamingToolExecutor && msgToolUseBlocks.length > 0) {
   for (const toolBlock of msgToolUseBlocks) {
     streamingToolExecutor.addTool(toolBlock, message)
@@ -96,7 +96,7 @@ for (const result of streamingToolExecutor.getCompletedResults()) {
 ### 8.2 addTool：添加并立即尝试执行
 
 ```typescript
-// → src/services/tools/StreamingToolExecutor.ts:76（简化版）
+// → src/services/tools/StreamingToolExecutor.ts 的 addTool() 方法（简化版）
 addTool(block: ToolUseBlock, assistantMessage: AssistantMessage): void {
   const toolDefinition = findToolByName(this.toolDefinitions, block.name)
 
@@ -129,7 +129,7 @@ addTool(block: ToolUseBlock, assistantMessage: AssistantMessage): void {
 核心并发控制逻辑：
 
 ```typescript
-// → src/services/tools/StreamingToolExecutor.ts:129（简化版）
+// → src/services/tools/StreamingToolExecutor.ts 的 canExecuteTool() 方法（简化版）
 private canExecuteTool(isConcurrencySafe: boolean): boolean {
   const executingTools = this.tools.filter(t => t.status === 'executing')
   return (
@@ -169,7 +169,7 @@ graph TD
 `runToolUse` 是单个工具的完整执行流程：
 
 ```typescript
-// → src/services/tools/toolExecution.ts:337（简化版）
+// → src/services/tools/toolExecution.ts 的 runToolUse() 函数（简化版）
 export async function* runToolUse(
   toolUse: ToolUseBlock,
   assistantMessage: AssistantMessage,
@@ -192,7 +192,7 @@ export async function* runToolUse(
 这是工具执行最核心的函数，包含完整的 5 步链：
 
 ```typescript
-// → src/services/tools/toolExecution.ts:599（简化版）
+// → src/services/tools/toolExecution.ts 的 checkPermissionsAndCallTool() 函数（简化版）
 async function checkPermissionsAndCallTool(
   tool, toolUseID, input, toolUseContext, canUseTool, ...
 ): Promise<MessageUpdateLazy[]> {
@@ -277,7 +277,7 @@ sequenceDiagram
 ### 8.6 兄弟错误级联：Bash 失败取消并行工具
 
 ```typescript
-// → src/services/tools/StreamingToolExecutor.ts:354-363
+// → src/services/tools/StreamingToolExecutor.ts 的兄弟错误级联
 if (isErrorResult) {
   // 只有 Bash 错误会取消并行兄弟
   // Bash 命令常有隐式依赖链（如 mkdir 失败 → 后续命令无意义）
@@ -296,7 +296,7 @@ if (isErrorResult) {
 工具执行过程中可以产出进度消息：
 
 ```typescript
-// → src/services/tools/StreamingToolExecutor.ts:366-378
+// → src/services/tools/StreamingToolExecutor.ts 的进度消息处理
 if (update.message.type === 'progress') {
   tool.pendingProgress.push(update.message)  // 立即加入待处理队列
   // 通知 getRemainingResults 有新进度
@@ -349,6 +349,14 @@ const executing = this.tools.filter(t => t.status === 'executing')
 console.log('[DEBUG] canExecute:', isConcurrencySafe, 'executing:', executing.map(t => t.block.name))
 ```
 
+运行后你应该看到类似输出：
+
+```
+[DEBUG] canExecute: true executing: []                  ← 第一个工具，无人在执行
+[DEBUG] canExecute: true executing: [ 'Read' ]          ← Read 是只读的，可以并行
+[DEBUG] canExecute: false executing: [ 'Read', 'Grep' ] ← 写操作，等待只读完成
+```
+
 然后给 Claude 一个需要读多个文件的任务，观察哪些工具并行执行。
 
 ### 修改 2：测量工具执行时间
@@ -359,6 +367,17 @@ console.log('[DEBUG] canExecute:', isConcurrencySafe, 'executing:', executing.ma
 console.log('[DEBUG] Tool start:', tool.name)
 const result = await tool.call(callInput, ...)
 console.log('[DEBUG] Tool end:', tool.name, 'duration:', Date.now() - startTime, 'ms')
+```
+
+运行后你应该看到类似输出：
+
+```
+[DEBUG] Tool start: Read
+[DEBUG] Tool start: Grep
+[DEBUG] Tool end: Read duration: 12 ms
+[DEBUG] Tool end: Grep duration: 45 ms
+[DEBUG] Tool start: Write
+[DEBUG] Tool end: Write duration: 8 ms
 ```
 
 ---

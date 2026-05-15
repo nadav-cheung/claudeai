@@ -61,7 +61,7 @@ Claude Code 有 6 种内部权限模式。最常见的 3 种：
 | `auto` | AI 分类器自动决定允许/拒绝 | 无需手动确认，Opus 模型做判断 |
 
 ```typescript
-// → src/types/permissions.ts:16-38（简化版）
+// → src/types/permissions.ts 的 PermissionMode 类型（简化版）
 type PermissionMode =
   | 'default'        // 默认：逐个提示
   | 'plan'           // 计划模式：只读
@@ -74,7 +74,7 @@ type PermissionMode =
 模式初始化优先级：
 
 ```typescript
-// → src/utils/permissions/permissionSetup.ts:689（简化版）
+// → src/utils/permissions/permissionSetup.ts 的 initialPermissionModeFromCLI() 函数（简化版）
 function initialPermissionModeFromCLI(): PermissionMode {
   // 优先级从高到低：
   // 1. --dangerously-skip-permissions 标志
@@ -126,7 +126,7 @@ graph TD
 ```
 
 ```typescript
-// → src/utils/permissions/permissions.ts:1158（简化版）
+// → src/utils/permissions/permissions.ts 的 hasPermissionsToUseToolInner() 函数（简化版）
 function hasPermissionsToUseToolInner(tool, input, context) {
   // Step 1: 规则检查（所有模式通用）
 
@@ -166,7 +166,7 @@ function hasPermissionsToUseToolInner(tool, input, context) {
 BashTool 有最复杂的权限系统——因为 shell 命令的攻击面最大。
 
 ```typescript
-// → src/tools/BashTool/bashPermissions.ts:1663（简化版）
+// → src/tools/BashTool/bashPermissions.ts 的 bashToolHasPermission() 函数（简化版）
 function bashToolHasPermission(command, context) {
   // 1. AST 安全解析（tree-sitter）
   const parseResult = parseCommandAST(command)
@@ -237,7 +237,7 @@ BashTool 用两种机制判断命令是否只读：
 ### 11.5 规则来源和优先级
 
 ```typescript
-// → src/types/permissions.ts:54-63
+// → src/types/permissions.ts 的 PermissionRuleSource 类型
 type PermissionRuleSource =
   | 'policySettings'     // 企业管理，不可覆盖
   | 'flagSettings'       // 功能标志覆盖
@@ -256,7 +256,7 @@ type PermissionRuleSource =
 auto 模式用 AI 分类器自动决定允许/拒绝：
 
 ```typescript
-// → src/utils/permissions/permissions.ts:522（简化版）
+// → src/utils/permissions/permissions.ts 的 auto 模式分类器（简化版）
 if (mode === 'auto' && decision.behavior === 'ask') {
   // 快速路径 1：acceptEdits 兼容
   if (wouldBeAllowedInAcceptEdits(tool, input)) {
@@ -281,7 +281,7 @@ if (mode === 'auto' && decision.behavior === 'ask') {
 当用户在权限提示中点击"始终允许"：
 
 ```typescript
-// → src/utils/permissions/PermissionUpdate.ts:349（简化版）
+// → src/utils/permissions/PermissionUpdate.ts 的 persistPermissionUpdates() 函数（简化版）
 function persistPermissionUpdates(updates) {
   // 根据工具类型生成规则：
   // Bash: Bash(npm install) → 精确匹配
@@ -333,6 +333,15 @@ console.log('[DEBUG] Bash parse:', parseResult, 'command:', command.substring(0,
 console.log('[DEBUG] Permission check:', tool.name, 'mode:', context.mode)
 ```
 
+运行后你应该看到类似输出：
+
+```
+[DEBUG] Permission check: Read mode: default
+[DEBUG] Permission check: Bash mode: default
+[DEBUG] Permission check: Write mode: default
+[DEBUG] Permission check: Grep mode: default
+```
+
 观察每个工具调用时走了哪条路径。
 
 ### 修改 2：测试 Bash 只读检测
@@ -343,6 +352,15 @@ console.log('[DEBUG] Permission check:', tool.name, 'mode:', context.mode)
 console.log('[DEBUG] Bash readOnly:', isReadOnly, 'command:', input.command?.substring(0, 80))
 ```
 
+运行后你应该看到类似输出：
+
+```
+[DEBUG] Bash readOnly: true command: ls -la
+[DEBUG] Bash readOnly: true command: git status
+[DEBUG] Bash readOnly: false command: rm -rf node_modules
+[DEBUG] Bash readOnly: false command: npm install
+```
+
 发送各种命令（`ls`、`rm`、`git status`、`npm install`）观察判断结果。
 
 ### 修改 3：观察规则匹配
@@ -351,6 +369,14 @@ console.log('[DEBUG] Bash readOnly:', isReadOnly, 'command:', input.command?.sub
 
 ```typescript
 console.log('[DEBUG] Rule match:', ruleSource, ruleBehavior, 'for:', toolName, ruleContent)
+```
+
+运行后你应该看到类似输出：
+
+```
+[DEBUG] Rule match: userSettings allow for: Read *.ts
+[DEBUG] Rule match: projectSettings deny for: Bash rm -rf *
+[DEBUG] Rule match: session allow for: Edit src/**
 ```
 
 ---

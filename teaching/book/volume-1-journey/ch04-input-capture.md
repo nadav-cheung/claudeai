@@ -108,7 +108,7 @@ Claude Code 的输入处理遵循这个模式：`PromptInput` 组件负责渲染
 ### 4.2 PromptInputMode：四种输入模式
 
 ```typescript
-// → src/types/textInputTypes.ts:265
+// → src/types/textInputTypes.ts 的 PromptInputMode 类型
 export type PromptInputMode =
   | 'bash'                    // Bash 命令模式（! 开头）
   | 'prompt'                  // 普通提示模式（默认）
@@ -123,7 +123,7 @@ export type PromptInputMode =
 `PromptInput` 的 `onSubmit` 回调指向 `handlePromptSubmit` 函数：
 
 ```typescript
-// → src/utils/handlePromptSubmit.ts:120（简化版）
+// → src/utils/handlePromptSubmit.ts 的 handlePromptSubmit() 函数（简化版）
 export async function handlePromptSubmit(
   params: HandlePromptSubmitParams,
 ): Promise<void> {
@@ -161,7 +161,7 @@ export async function handlePromptSubmit(
 `processUserInput` 是输入处理的"调度员"——它根据输入类型路由到不同的处理器：
 
 ```typescript
-// → src/utils/processUserInput/processUserInput.ts:85（简化版）
+// → src/utils/processUserInput/processUserInput.ts 的 processUserInput() 函数（简化版）
 export async function processUserInput({
   input, mode, context, pastedContents, messages, ...
 }): Promise<ProcessUserInputBaseResult> {
@@ -198,7 +198,7 @@ export async function processUserInput({
 返回类型 `ProcessUserInputBaseResult` 的结构：
 
 ```typescript
-// → src/utils/processUserInput/processUserInput.ts:64-83
+// → src/utils/processUserInput/processUserInput.ts 的 ProcessUserInputBaseResult 类型
 type ProcessUserInputBaseResult = {
   messages: (UserMessage | AssistantMessage | AttachmentMessage | SystemMessage)[]
   shouldQuery: boolean      // 是否触发 API 调用
@@ -215,7 +215,7 @@ type ProcessUserInputBaseResult = {
 `processUserInputBase` 内部是一条清晰的分支链：
 
 ```typescript
-// → src/utils/processUserInput/processUserInput.ts:281（简化版）
+// → src/utils/processUserInput/processUserInput.ts 的 processUserInputBase() 函数（简化版）
 async function processUserInputBase(input, mode, ...) {
   // 1. 图片处理（如果是多模态输入）
   //    - 调整图片大小（maybeResizeAndDownsampleImageBlock）
@@ -263,7 +263,7 @@ graph TD
 普通文本路径是最常见的，它的处理非常简洁：
 
 ```typescript
-// → src/utils/processUserInput/processTextPrompt.ts:19（简化版）
+// → src/utils/processUserInput/processTextPrompt.ts 的 processTextPrompt() 函数（简化版）
 export function processTextPrompt(
   input: string | ContentBlockParam[],
   imageContentBlocks: ContentBlockParam[],
@@ -306,7 +306,7 @@ export function processTextPrompt(
 所有路径最终都通过 `createUserMessage` 创建消息对象：
 
 ```typescript
-// → src/utils/messages.ts:460（简化版）
+// → src/utils/messages.ts 的 createUserMessage() 函数（简化版）
 export function createUserMessage({
   content,
   isMeta,
@@ -367,7 +367,7 @@ type UserMessage = {
 在普通文本路径之外，`processUserInputBase` 还会收集附件消息：
 
 ```typescript
-// → src/utils/processUserInput/processUserInput.ts:496-514
+// → src/utils/processUserInput/processUserInput.ts 的附件提取逻辑
 const shouldExtractAttachments =
   !skipAttachments &&
   inputString !== null &&
@@ -434,6 +434,19 @@ console.log('[DEBUG] processTextPrompt result:', {
 console.log('[DEBUG] inputString:', inputString?.substring(0, 50), 'mode:', mode)
 ```
 
+运行后你应该看到类似输出：
+
+```
+> 你好
+[DEBUG] inputString: 你好 mode: prompt
+
+> !ls -la
+[DEBUG] inputString: ls -la mode: bash
+
+> /help
+[DEBUG] inputString: /help mode: prompt
+```
+
 然后分别尝试：
 ```
 > 你好                    # 普通文本 → 走 processTextPrompt
@@ -447,6 +460,20 @@ console.log('[DEBUG] inputString:', inputString?.substring(0, 50), 'mode:', mode
 
 ```typescript
 console.log('[DEBUG] UserMessage created:', JSON.stringify(userMessage, null, 2))
+```
+
+运行后你应该看到类似输出：
+
+```
+[DEBUG] UserMessage created: {
+  "type": "user",
+  "message": {
+    "role": "user",
+    "content": "你好"
+  },
+  "uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "timestamp": "2026-05-16T08:30:00.000Z"
+}
 ```
 
 然后发送一条消息，观察 `UserMessage` 的完整结构——注意 `uuid`、`timestamp`、`type` 等字段。

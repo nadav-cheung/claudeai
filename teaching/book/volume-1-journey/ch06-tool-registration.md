@@ -86,7 +86,7 @@ main.tsx 初始化阶段
 所有工具都遵循 `Tool` 类型定义。它是一个泛型类型，有三个类型参数：
 
 ```typescript
-// → src/Tool.ts:362（简化版，展示核心字段）
+// → src/Tool.ts 的 Tool 类型（简化版，展示核心字段）
 export type Tool<
   Input extends AnyObject = AnyObject,   // Zod schema 类型
   Output = unknown,                       // 输出类型
@@ -139,7 +139,7 @@ export type Tool<
 `buildTool` 是创建工具的标准方式。它接收一个 `ToolDef` 对象，填充默认值：
 
 ```typescript
-// → src/Tool.ts:783（简化版）
+// → src/Tool.ts 的 buildTool() 函数（简化版）
 const TOOL_DEFAULTS = {
   isEnabled: () => true,
   isConcurrencySafe: (_input?: unknown) => false,
@@ -166,7 +166,7 @@ export function buildTool<D extends AnyToolDef>(def: D): BuiltTool<D> {
 BashTool 是最复杂的工具之一，展示了 Zod schema 的典型用法：
 
 ```typescript
-// → src/tools/BashTool/BashTool.tsx:227（简化版）
+// → src/tools/BashTool/BashTool.tsx 的 fullInputSchema（简化版）
 const fullInputSchema = lazySchema(() => z.strictObject({
   command: z.string().describe('The command to execute'),
   timeout: z.number().optional().describe('Optional timeout in milliseconds'),
@@ -187,7 +187,7 @@ const fullInputSchema = lazySchema(() => z.strictObject({
 **2. `_simulatedSedEdit` 被从模型 schema 中移除**：
 
 ```typescript
-// → src/tools/BashTool/BashTool.tsx:249-253
+// → src/tools/BashTool/BashTool.tsx 的 _simulatedSedEdit 注释
 // Always omit _simulatedSedEdit from the model-facing schema. It is an internal-only
 // field set by SedEditPermissionRequest after the user approves a sed edit preview.
 // Exposing it would let the model bypass permission checks.
@@ -201,7 +201,7 @@ const inputSchema = lazySchema(() => fullInputSchema().omit({
 **3. `buildTool()` 调用**：
 
 ```typescript
-// → src/tools/BashTool/BashTool.tsx:420
+// → src/tools/BashTool/BashTool.tsx 的 BashTool 定义
 export const BashTool = buildTool({
   name: 'Bash',
   searchHint: 'execute shell commands',
@@ -228,7 +228,7 @@ export const BashTool = buildTool({
 `getAllBaseTools()` 返回所有内置工具的数组。工具的条件包含展示了 feature flag 的使用：
 
 ```typescript
-// → src/tools.ts:193（简化版）
+// → src/tools.ts 的 getAllBaseTools() 函数（简化版）
 export function getAllBaseTools(): Tools {
   return [
     // === 核心工具（始终存在）===
@@ -286,7 +286,7 @@ export function getAllBaseTools(): Tools {
 `getTools()` 是获取最终工具列表的入口：
 
 ```typescript
-// → src/tools.ts:271（简化版）
+// → src/tools.ts 的 getTools() 函数（简化版）
 export const getTools = (permissionContext: ToolPermissionContext): Tools => {
   // --bare 模式：只有 Bash + Read + Edit
   if (process.env.CLAUDE_CODE_SIMPLE) {
@@ -318,7 +318,7 @@ export const getTools = (permissionContext: ToolPermissionContext): Tools => {
 ### 6.6 assembleToolPool：合并内置 + MCP 工具
 
 ```typescript
-// → src/tools.ts:345（简化版）
+// → src/tools.ts 的 assembleToolPool() 函数（简化版）
 export function assembleToolPool(
   permissionContext: ToolPermissionContext,
   mcpTools: Tool[],
@@ -376,6 +376,13 @@ console.log('[DEBUG] Active tools:', result.map(t => t.name).join(', '))
 console.log('[DEBUG] Tool count:', result.length)
 ```
 
+运行后你应该看到类似输出：
+
+```
+[DEBUG] Active tools: Agent, Bash, Edit, Glob, Grep, Read, Write, ...
+[DEBUG] Tool count: 23
+```
+
 然后启动 Claude Code，观察输出了哪些工具。尝试不同模式：
 ```bash
 claude                    # 完整模式
@@ -395,12 +402,39 @@ for (const tool of result) {
 }
 ```
 
+运行后你应该看到类似输出：
+
+```
+[DEBUG] Agent: isReadOnly=false
+[DEBUG] Bash: isReadOnly=false
+[DEBUG] Edit: isReadOnly=false
+[DEBUG] Glob: isReadOnly=true
+[DEBUG] Grep: isReadOnly=true
+[DEBUG] Read: isReadOnly=true
+[DEBUG] Write: isReadOnly=false
+```
+
 ### 修改 3：查看 BashTool 的 schema
 
 在 `src/tools/BashTool/BashTool.tsx` 的 `buildTool` 调用前加：
 
 ```typescript
 console.log('[DEBUG] BashTool inputSchema:', JSON.stringify(inputSchema(), null, 2))
+```
+
+运行后你应该看到类似输出：
+
+```
+[DEBUG] BashTool inputSchema: {
+  "type": "object",
+  "properties": {
+    "command": { "type": "string", "description": "The command to execute" },
+    "timeout": { "type": "number", "description": "Optional timeout in milliseconds" },
+    "description": { "type": "string", "description": "Clear, concise description..." }
+  },
+  "required": ["command"],
+  "additionalProperties": false
+}
 ```
 
 观察 Zod schema 如何转换为 JSON 格式——这就是发送给 Anthropic API 的工具参数定义。

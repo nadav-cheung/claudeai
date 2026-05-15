@@ -211,7 +211,7 @@ gantt
 `src/entrypoints/init.ts` 中的 `init()` 函数是 **memoized**（记忆化的）——只执行一次，后续调用直接返回缓存结果：
 
 ```typescript
-// → src/entrypoints/init.ts:57
+// → src/entrypoints/init.ts 的 init() 函数
 export const init = memoize(async () => {
   // 初始化配置系统
   enableConfigs()
@@ -269,7 +269,7 @@ export async function main() {
 当 REPL 启动后，用户输入的消息最终会调用 `query()`：
 
 ```typescript
-// → src/screens/REPL.tsx（简化版，约第 2793 行）
+// → src/screens/REPL.tsx 的 query() 调用（简化版）
 for await (const event of query({
   messages: messagesIncludingNewMessages,
   systemPrompt,
@@ -323,6 +323,19 @@ console.log('[DEBUG] main.tsx main() called')
 console.log('[DEBUG] args =', args)
 ```
 
+运行后你应该看到类似输出：
+
+```
+$ claude --version
+[DEBUG] args = [ '--version' ]
+
+$ claude --help
+[DEBUG] args = [ '--help' ]
+
+$ claude
+[DEBUG] args = []
+```
+
 然后分别运行：
 ```bash
 claude --version    # 看看走了哪条路径
@@ -342,6 +355,13 @@ console.log('[DEBUG] main.tsx loaded at', Date.now())
 
 ```typescript
 console.log('[DEBUG] about to launch REPL at', Date.now())
+```
+
+运行后你应该看到类似输出：
+
+```
+[DEBUG] main.tsx loaded at 1747345678901
+[DEBUG] about to launch REPL at 1747345679140
 ```
 
 两次时间之差就是从模块加载到 REPL 启动的时间。

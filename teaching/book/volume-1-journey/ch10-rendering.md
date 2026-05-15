@@ -81,7 +81,7 @@ REPL.tsx 的 for await (event of query(...)) 循环
 Claude Code 用自定义的 Ink fork（不是 npm 的 `ink` 包），入口在 `src/ink.ts`：
 
 ```typescript
-// → src/ink.ts:18-31（简化版）
+// → src/ink.ts 的 createRoot() 函数（简化版）
 import { createRoot as inkCreateRoot } from './ink/root'
 import { createElement } from 'react'
 import { ThemeProvider } from './components/design-system/ThemeProvider'
@@ -102,7 +102,7 @@ export const createRoot = (options) => {
 所有根节点被 `<ThemeProvider>` 包裹，确保主题在任何层级都能访问。
 
 ```typescript
-// → src/ink/root.ts:76-123（简化版）
+// → src/ink/root.ts 的 renderSync() 和 createRoot() 函数（简化版）
 export const renderSync = (node, options) => {
   const instance = new Ink(options)
   instance.render(node)
@@ -122,7 +122,7 @@ export const createRoot = (options) => {
 实际的 REPL 启动在 `replLauncher.tsx`：
 
 ```typescript
-// → src/replLauncher.tsx:12-22（简化版）
+// → src/replLauncher.tsx 的 REPL 启动（简化版）
 const { App, REPL } = await import('./screens/REPL')
 const { renderAndRun } = await import('./utils/renderAndRun')
 
@@ -158,7 +158,7 @@ renderAndRun(
 REPL.tsx 的核心数据流：
 
 ```typescript
-// → src/screens/REPL.tsx:2793-2803（简化版）
+// → src/screens/REPL.tsx 的 query() 调用（简化版）
 for await (const event of query({messages, systemPrompt, ...})) {
   onQueryEvent(event)
 }
@@ -167,7 +167,7 @@ for await (const event of query({messages, systemPrompt, ...})) {
 `handleMessageFromStream` 把 SSE 事件分发到 React 状态：
 
 ```typescript
-// → src/utils/messages.ts:2930-3095（简化版）
+// → src/utils/messages.ts 的 handleMessageFromStream() 函数（简化版）
 export function handleMessageFromStream(event, {
   onSetStreamMode,
   onStreamingText,
@@ -211,7 +211,7 @@ export function handleMessageFromStream(event, {
 REPL 的流式状态：
 
 ```typescript
-// → src/screens/REPL.tsx:849-850（简化版）
+// → src/screens/REPL.tsx 的流式状态（简化版）
 const [streamingText, setStreamingText] = useState<string | null>(null)
 const [streamingToolUses, setStreamingToolUses] = useState<StreamingToolUse[]>([])
 const [streamingThinking, setStreamingThinking] = useState<StreamingThinking | null>(null)
@@ -220,7 +220,7 @@ const [streamingThinking, setStreamingThinking] = useState<StreamingThinking | n
 有趣的细节——`visibleStreamingText` 按行截断：
 
 ```typescript
-// → src/screens/REPL.tsx:1473（简化版）
+// → src/screens/REPL.tsx 的 visibleStreamingText（简化版）
 const visibleStreamingText = streamingText
   ? streamingText.substring(0, streamingText.lastIndexOf('\n') + 1) || null
   : null
@@ -231,7 +231,7 @@ const visibleStreamingText = streamingText
 ### 10.4 Message 分发：按消息类型渲染
 
 ```typescript
-// → src/components/Message.tsx:58-354（简化版）
+// → src/components/Message.tsx 的 MessageImpl() 组件（简化版）
 function MessageImpl({ message }) {
   switch (message.type) {
     case 'assistant':
@@ -303,7 +303,7 @@ graph LR
 **节流机制**：
 
 ```typescript
-// → src/ink/ink.tsx:212-216（简化版）
+// → src/ink/ink.tsx 的帧间隔常量（简化版）
 const FRAME_INTERVAL_MS = 16  // ~60fps
 
 const deferredRender = (): void => queueMicrotask(this.onRender)
@@ -318,7 +318,7 @@ this.scheduleRender = throttle(deferRender, FRAME_INTERVAL_MS, {
 ### 10.6 双层帧缓冲和差异引擎
 
 ```typescript
-// → src/ink/ink.tsx:586-595（简化版）
+// → src/ink/ink.tsx 的 onRender() 方法（简化版）
 onRender() {
   // 1. 渲染 DOM 树到 Screen 缓冲
   const frame = this.renderer({
@@ -383,7 +383,7 @@ function renderNodeToOutput(node, output, options) {
 ### 10.9 Markdown 渲染
 
 ```typescript
-// → src/components/Markdown.tsx:78-100（简化版）
+// → src/components/Markdown.tsx 的 Markdown 组件（简化版）
 function Markdown({ content }) {
   // 混合渲染策略：
   // - 表格：React 组件 + Flexbox 布局
@@ -456,6 +456,14 @@ console.log('[DEBUG] Stream event:', event.type, event.delta?.type ?? '')
 console.log('[DEBUG] onRender at:', Date.now(), 'terminal size:', this.terminalColumns + 'x' + this.terminalRows)
 ```
 
+运行后你应该看到类似输出：
+
+```
+[DEBUG] onRender at: 1747345678901 terminal size: 120x40
+[DEBUG] onRender at: 1747345678917 terminal size: 120x40
+[DEBUG] onRender at: 1747345678933 terminal size: 120x40
+```
+
 观察正常对话时的帧渲染频率——你应该看到大约每 16ms 一帧。
 
 ### 修改 2：追踪消息渲染
@@ -466,6 +474,15 @@ console.log('[DEBUG] onRender at:', Date.now(), 'terminal size:', this.terminalC
 console.log('[DEBUG] Message type:', message.type, 'subtype:', message.subtype ?? 'none')
 ```
 
+运行后你应该看到类似输出：
+
+```
+[DEBUG] Message type: user subtype: none
+[DEBUG] Message type: assistant subtype: none
+[DEBUG] Message type: assistant subtype: none
+[DEBUG] Message type: system subtype: compact_boundary
+```
+
 发送一条消息，观察渲染了哪些类型的消息组件。
 
 ### 修改 3：观察 VirtualMessageList 行为
@@ -474,6 +491,14 @@ console.log('[DEBUG] Message type:', message.type, 'subtype:', message.subtype ?
 
 ```typescript
 console.log('[DEBUG] Visible messages:', visibleStart, '-', visibleEnd, 'of', total)
+```
+
+运行后你应该看到类似输出：
+
+```
+[DEBUG] Visible messages: 0 - 15 of 15
+[DEBUG] Visible messages: 8 - 23 of 42
+[DEBUG] Visible messages: 35 - 50 of 85
 ```
 
 长对话时观察只有可见范围的消息被渲染。

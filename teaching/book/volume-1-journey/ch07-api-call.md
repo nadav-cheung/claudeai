@@ -368,6 +368,14 @@ console.log('[DEBUG] stream event type:', message.type)
 console.log('[DEBUG] API call - turn:', turnCount, 'messages:', messagesForQuery.length)
 ```
 
+运行后你应该看到类似输出：
+
+```
+[DEBUG] API call - turn: 1 messages: 3
+[DEBUG] API call - turn: 2 messages: 6
+[DEBUG] API call - turn: 3 messages: 9
+```
+
 然后发送一个需要多轮的任务，观察每轮的消息数量变化。
 
 ### 修改 2：追踪流式事件类型
@@ -379,6 +387,14 @@ if (message.type === 'assistant') {
   const blockTypes = message.message.content.map(b => b.type).join(', ')
   console.log('[DEBUG] assistant blocks:', blockTypes)
 }
+```
+
+运行后你应该看到类似输出：
+
+```
+[DEBUG] assistant blocks: text
+[DEBUG] assistant blocks: text, tool_use
+[DEBUG] assistant blocks: thinking, text, tool_use
 ```
 
 观察模型每轮回复包含哪些类型的 block（text、tool_use、thinking）。

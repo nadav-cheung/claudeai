@@ -79,7 +79,7 @@ query() 调用前的准备阶段
 `getSystemPrompt()` 返回一个字符串数组，每个元素是一个 prompt section：
 
 ```typescript
-// → src/constants/prompts.ts:444（简化版）
+// → src/constants/prompts.ts 的 getSystemPrompt() 函数（简化版）
 export async function getSystemPrompt(
   tools: Tools,
   model: string,
@@ -163,14 +163,16 @@ graph TB
     BOUNDARY["SYSTEM_PROMPT_DYNAMIC_BOUNDARY<br/>缓存边界标记"]
 
     subgraph "动态区（每轮可能变化）"
-        D1["session_guidance — 会话指引"]
-        D2["memory — 自动记忆"]
-        D3["env_info — 环境/模型信息"]
-        D4["language — 语言偏好"]
-        D5["output_style — 输出样式"]
-        D6["mcp_instructions — MCP 指令"]
-        D7["frc — 函数结果清理"]
-        D8["summarize_tool_results"]
+        D1["① session_guidance — 会话指引"]
+        D2["② memory — 自动记忆"]
+        D3["③ ant_model_override — 内部模型覆盖"]
+        D4["④ env_info — 环境/模型信息"]
+        D5["⑤ language — 语言偏好"]
+        D6["⑥ output_style — 输出样式"]
+        D7["⑦ mcp_instructions — MCP 指令"]
+        D8["⑧ scratchpad — 草稿板指令"]
+        D9["⑨ frc — 函数结果清理"]
+        D10["⑩ summarize_tool_results"]
     end
 
     S7 --> BOUNDARY --> D1
@@ -185,7 +187,7 @@ graph TB
 ### 5.2 getSystemContext：Git 状态和环境
 
 ```typescript
-// → src/context.ts:116（简化版）
+// → src/context.ts 的 getSystemContext() 函数（简化版）
 export const getSystemContext = memoize(async () => {
   // Git 状态（并行获取 5 条命令）
   const gitStatus = await getGitStatus()
@@ -205,7 +207,7 @@ export const getSystemContext = memoize(async () => {
 `getGitStatus()` 并行执行 5 个 git 命令：
 
 ```typescript
-// → src/context.ts:61
+// → src/context.ts 的 getGitStatus() 函数
 const [branch, mainBranch, status, log, userName] = await Promise.all([
   getBranch(),                          // 当前分支
   getDefaultBranch(),                   // 主分支
@@ -222,7 +224,7 @@ const [branch, mainBranch, status, log, userName] = await Promise.all([
 ### 5.3 getUserContext：CLAUDE.md 加载
 
 ```typescript
-// → src/context.ts:155（简化版）
+// → src/context.ts 的 getUserContext() 函数（简化版）
 export const getUserContext = memoize(async () => {
   // 检查是否禁用 CLAUDE.md
   const shouldDisableClaudeMd =
@@ -248,7 +250,7 @@ export const getUserContext = memoize(async () => {
 ### 5.4 CLAUDE.md 四级加载层级
 
 ```typescript
-// → src/utils/claudemd.ts:1-26（文件头注释）
+// → src/utils/claudemd.ts 的文件头注释
 // 文件按以下顺序加载：
 // 1. Managed memory (/etc/claude-code/CLAUDE.md) — 全局策略指令（管理员设置）
 // 2. User memory (~/.claude/CLAUDE.md) — 用户的私有全局指令
@@ -273,7 +275,7 @@ graph TD
     style L fill:#f3e5f5
 ```
 
-**加载流程**（`getMemoryFiles()` 在 `claudemd.ts:790`）：
+**加载流程**（`getMemoryFiles()` 在 `claudemd.ts` 的 `getMemoryFiles()` 函数）：
 
 1. **Managed 文件**：从 `/etc/claude-code/CLAUDE.md` 加载（需要管理员权限设置）
 2. **Managed rules**：`/etc/claude-code/rules/*.md` 目录中的规则文件
@@ -292,7 +294,7 @@ graph TD
 CLAUDE.md 支持 `@` 语法导入其他文件：
 
 ```typescript
-// → src/utils/claudemd.ts:18-25（文件头注释）
+// → src/utils/claudemd.ts 的 @include 语法注释
 // Memory @include directive:
 // - Syntax: @path, @./relative/path, @~/home/path, or @/absolute/path
 // - Included files are added as separate entries before the including file
@@ -315,7 +317,7 @@ Always add explicit return types to TypeScript functions.
 `getClaudeMds()` 把加载到的文件格式化为注入给模型的文本：
 
 ```typescript
-// → src/utils/claudemd.ts:1153（简化版）
+// → src/utils/claudemd.ts 的 getClaudeMds() 函数（简化版）
 export const getClaudeMds = (memoryFiles: MemoryFileInfo[]): string => {
   const memories: string[] = []
 
@@ -346,14 +348,14 @@ export const getClaudeMds = (memoryFiles: MemoryFileInfo[]): string => {
 ### 5.7 自动记忆：MEMORY.md
 
 ```typescript
-// → src/memdir/memdir.ts:419（简化版）
+// → src/memdir/memdir.ts 的 loadMemoryPrompt() 函数（简化版）
 // loadMemoryPrompt() — 根据启用的记忆系统构建 prompt
 ```
 
 自动记忆系统存储在 `.claude/memory/` 目录中。加载时有大小限制：
 
 ```typescript
-// → src/memdir/memdir.ts:57
+// → src/memdir/memdir.ts 的 MEMORY.md 截断限制
 // MEMORY.md 截断限制：最多 200 行 AND 25KB
 ```
 
@@ -402,6 +404,15 @@ echo "这是一个测试指令：回复时总是以 [TEST] 开头" > CLAUDE.md
 console.log('[DEBUG] Memory files loaded:', memoryFiles.map(f => ({ type: f.type, path: f.path })))
 ```
 
+运行后你应该看到类似输出：
+
+```
+[DEBUG] Memory files loaded: [
+  { type: 'Project', path: '/home/user/my-project/CLAUDE.md' },
+  { type: 'User', path: '/home/user/.claude/CLAUDE.md' }
+]
+```
+
 启动 Claude Code 后，观察加载了哪些文件。
 
 ### 修改 2：观察 system prompt 结构
@@ -413,6 +424,16 @@ console.log('[DEBUG] System prompt has', result.length, 'sections')
 for (let i = 0; i < result.length; i++) {
   console.log(`  Section ${i}: ${(result[i] ?? '').substring(0, 80)}...`)
 }
+```
+
+运行后你应该看到类似输出：
+
+```
+[DEBUG] System prompt has 18 sections
+  Section 0: You are Claude Code, Anthropic's official CLI for Claude. You are an agent for...
+  Section 1: # System Behavior...
+  Section 2: # Doing Tasks...
+  Section 3: # Actions...
 ```
 
 ### 修改 3：实验 @include 语法
@@ -433,7 +454,7 @@ echo "本地指令：我偏好用 pnpm 而非 npm" > CLAUDE.local.md
 
 - **System prompt 两区架构**：静态区（可缓存）+ 动态区（每轮变化），中间有缓存边界标记
 - **静态区 7 个 section**：身份、系统行为、编码指南、风险评估、工具指引、语气风格、输出效率
-- **动态区 12+ 个 section**：会话指引、记忆、环境信息、语言、输出样式、MCP 指令、函数结果清理等
+- **动态区 10 个 section**：① session_guidance（会话指引）② memory（自动记忆）③ ant_model_override（内部模型覆盖）④ env_info_simple（环境信息）⑤ language（语言偏好）⑥ output_style（输出样式）⑦ mcp_instructions（MCP 指令）⑧ scratchpad（草稿板指令）⑨ frc（函数结果清理）⑩ summarize_tool_results（工具结果摘要）
 - **CLAUDE.md 四级加载**：Managed → User → Project → Local，越靠近当前目录优先级越高
 - **文件发现机制**：从当前目录向上遍历，支持 `@include` 语法和条件规则（YAML frontmatter）
 - **自动记忆**：MEMORY.md 最多 200 行 / 25KB

@@ -376,6 +376,15 @@ const ORIGINAL_MAX_TOKENS = 200  // 临时改为极小值，强制触发截断
 console.log('[DEBUG] Output tokens this turn:', outputTokenCount)
 ```
 
+运行后你应该看到类似输出：
+
+```
+[DEBUG] Output tokens this turn: 1523
+[DEBUG] Output tokens this turn: 847
+[DEBUG] Output tokens this turn: 42
+[DEBUG] Output tokens this turn: 18
+```
+
 如果连续看到低数字（如 < 100），说明触发了收益递减检测。
 
 ---
