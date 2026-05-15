@@ -313,3 +313,98 @@ VILA-Lab 论文（arXiv:2604.14228）将 Claude Code 的设计原则归纳为 5 
 - 部分章节的"试一试"环节不完整
 
 **建议优先级**：先修复规格偏离（编写 Claude Code 专用规格），再统一术语，最后补充实操环节。
+
+---
+
+## 九、补充专家视角（第二轮研究）
+
+> 以下内容基于 2026-05-16 补充的专家研究。
+
+### 9.1 Zod vs JSON Schema：社区争议
+
+**专家**：Ibrahim Towha（"JSON Schema 比 Zod 更好"）、Hacker News 社区讨论
+
+**核心批评**：
+- Zod 是 TypeScript 生态的"局部最大值"——纯 TS 项目中表现优秀，但跨语言协作时变成技术债务
+- JSON Schema 是 2009 年以来的国际标准，天然跨语言
+- 社区正在分化：部分团队转向 Effect Schema（更函数式），部分回归"更笨的代码"
+- SuperJSON 基准测试：AJV（JSON Schema）在高吞吐量场景性能优于 Zod
+
+**对本书的影响**：
+- ch30（为什么用 Zod）应补充 Zod 的**局限性**讨论：语言锁定、Zod 4 兼容性
+- 补充开放性问题："如果 Claude Code 需要向 Python/Rust 客户端暴露 schema 怎么办？"
+
+### 9.2 自定义 React Reconciler：性能天花板
+
+**专家**：Sophie Alpert（React 核心团队前成员）、社区分析
+
+**关键发现**：
+- "React reconciler 的速度太慢，无法实时渲染按键操作"——社区共识
+- "React reconciler 已经提交了整个树"——细粒度终端更新需要 React 级别的更改
+- 自定义 reconciler 的 API **未被官方记录**，跨 React 版本升级风险高
+
+**对本书的影响**：
+- ch15 和 ch33 应明确解释 Claude Code 的**混合方法**：性能关键渲染（Screen 缓冲、差异引擎）在 React reconciler 之外的自定义层完成
+- 补充 React 19 Compiler 对自定义 reconciler 的影响
+- 讨论 reconciler 未文档化 API 带来的维护风险
+
+### 9.3 TypeScript CLI 最佳实践
+
+**专家**：Liran Tal（Tessl, Node.js CLI 37 条最佳实践）
+
+**对本书的影响**：
+- 应对照 37 条最佳实践检查 Claude Code：POSIX 参数合规性、配置优先级、错误报告质量
+- ch03 和 ch13 应讨论 CLI 配置层：命令行参数 > 环境变量 > 配置文件 > 默认值
+
+### 9.4 MCP 安全漏洞
+
+**专家**：The Hacker News（2026-04）、Pento AI 年度回顾
+
+**关键发现**：
+- 2026 年 4 月：研究者发现 MCP 架构中"设计上"的弱点，可能导致 RCE
+- "MCP 2025 发布速度快，但安全性没跟上"——认证缺口、工具描述提示注入、令牌存储风险
+- 9700 万月度 SDK 下载量、10,000+ 活跃服务器
+
+**对本书的影响**：
+- ch19 和 ch32 应讨论 MCP 的安全风险面
+- 补充 MCP 安全漏洞对 Claude Code 权限系统设计的影响
+
+### 9.5 Feature Flags 作为产品发现工具
+
+**专家**：Roberto Hortal / Jenny Wanger（LinkedIn）、LaunchDarkly
+
+**关键洞察**：
+- "Feature flags 不仅仅是开关——它们是产品发现工具"
+- 攻击者可"切换 feature flags 解锁管理/调试功能"——安全隐患
+- AI 提示可作为产品表面通过 feature flags 管理
+
+**对本书的影响**：
+- ch36 的 82 个 Feature Flags 分析应增加安全视角
+- 补充"feature flags 作为产品路线图化石"的方法论说明
+
+### 9.6 中文技术写作标准
+
+**专家**：yikeke（zh-style-guide）、侯捷（STL 源码分析）、丁奇（MySQL 是怎样运行的）
+
+**关键参考**：
+- **yikeke 风格指南**：中文技术文档事实标准——对话式语气、中英混排、文档结构
+- **侯捷 STL 源码分析**：中文源码分析书黄金标准——追踪数据流、解释设计决策
+- **丁奇《MySQL 是怎样运行的》**：以问题为导向的源码分析范例——豆瓣高分
+
+**对本书的影响**：
+- 对照 yikeke 风格指南做一轮排版校对
+- 参考侯捷的"追踪-数据流/解释-决策"模型强化卷一教学深度
+- 卷四的"被否方案"格式已接近侯捷的"设计决策解释"风格——可进一步强化
+
+### 9.7 补充参考文献
+
+| 来源 | 类型 | URL |
+|------|------|-----|
+| JSON Schema vs Zod 博客 | 博客 | https://www.ibrahimtowha.me/blog/json-schema-over-zod |
+| Node.js CLI 37 条最佳实践 | 开源指南 | https://github.com/lirantal/nodejs-cli-apps-best-practices |
+| 自定义 React 渲染器指南 | 博客 | https://swmansion.com/blog/how-to-build-a-custom-react-renderer-595dc4a9cb1c/ |
+| MCP 安全漏洞（The Hacker News） | 安全报告 | https://thehackernews.com/2026/04/anthropic-mcp-design-vulnerability.html |
+| MCP 2025 年度回顾（Pento AI） | 博客 | https://www.pento.ai/blog/a-year-of-mcp-2025-review |
+| 中文技术文档写作风格指南 | 开源指南 | https://zh-style-guide.readthedocs.io/zh-cn/latest/ |
+| Ink 闪烁分析 | GitHub | https://github.com/atxtechbro/test-ink-flickering/blob/main/INK-ANALYSIS.md |
+| Feature Flag 驱动开发 | 博客 | https://launchdarkly.com/blog/feature-flag-driven-development/ |
