@@ -88,11 +88,13 @@ function initialPermissionModeFromCLI(): PermissionMode {
 
 `hasPermissionsToUseTool()` 是权限检查的主入口，内部委托给 `hasPermissionsToUseToolInner()`：
 
+**Figure A: Step 1 规则检查**
+
 ```mermaid
 graph TD
     START["hasPermissionsToUseTool()"] --> INNER["hasPermissionsToUseToolInner()"]
 
-    subgraph "Step 1: 规则检查（模式无关）"
+    subgraph "Step 1: 规则检查（所有模式通用）"
         INNER --> D1["1a. 工具级 deny"]
         D1 --> A1["1b. 工具级 ask"]
         A1 --> CP["1c. checkPermissions()<br/>工具自定义逻辑"]
@@ -102,28 +104,42 @@ graph TD
         CA --> SAFE["1g. 安全路径检查<br/>.git/ .claude/ 等"]
     end
 
+    SAFE --> NEXT["→ Step 2-3：见下图"]
+
+    style D1 fill:#fce4ec
+    style D2 fill:#fce4ec
+    style SAFE fill:#fff3e0
+```
+
+> **图 A**：Step 1 是模式无关的规则检查——无论用户处于哪种权限模式，deny 规则都会生效。如果 Step 1 没有返回 deny，进入 Step 2。
+
+**Figure B: Step 2-3 模式决策与回退**
+
+```mermaid
+graph TD
+    ENTRY["Step 1 通过<br/>（无 deny）"] --> BYPASS{"bypass 模式？"}
+
     subgraph "Step 2: 模式决策"
-        SAFE --> BYPASS{"bypass 模式？"}
         BYPASS -->|"是"| ALLOW_BYPASS["允许（跳过后续）"]
         BYPASS -->|"否"| TA["2b. 工具级 allow 规则"]
         TA --> ALLOW_RULE["匹配 allow → 允许"]
     end
 
-    subgraph "Step 3: 回退"
+    subgraph "Step 3: 回退处理"
         TA --> PASS["passthrough → ask"]
         PASS --> MODE{"模式？"}
         MODE -->|"dontAsk"| DENY["转换为 deny"]
-        MODE -->|"auto"| CLASSIFY["AI 分类器"]
-        MODE -->|"default"| PROMPT["提示用户"]
+        MODE -->|"auto"| CLASSIFY["AI 分类器<br/>（Opus 模型）"]
+        MODE -->|"default"| PROMPT["提示用户确认"]
     end
 
-    style D1 fill:#fce4ec
-    style D2 fill:#fce4ec
-    style SAFE fill:#fff3e0
     style ALLOW_BYPASS fill:#e8f5e9
     style ALLOW_RULE fill:#e8f5e9
     style PROMPT fill:#e1f5fe
+    style DENY fill:#fce4ec
 ```
+
+> **图 B**：Step 2 根据模式做决策，Step 3 是兜底——没有明确 allow 的工具最终都会走到 ask，然后根据模式转换为不同的行为。
 
 ```typescript
 // → src/utils/permissions/permissions.ts 的 hasPermissionsToUseToolInner() 函数（简化版）
