@@ -304,12 +304,12 @@ function persistPermissionUpdates(updates) {
 
 | 位置 | 看什么 |
 |------|--------|
-| `permissions.ts:473` | `hasPermissionsToUseTool`——主入口 |
-| `permissions.ts:1158` | `hasPermissionsToUseToolInner`——分层检查 |
-| `bashPermissions.ts:1663` | `bashToolHasPermission`——Bash 权限入口 |
-| `readOnlyValidation.ts:128` | `COMMAND_ALLOWLIST`——只读命令白名单 |
-| `permissionSetup.ts:689` | `initialPermissionModeFromCLI`——模式初始化 |
-| `classifierDecision.ts:56` | `SAFE_YOLO_ALLOWLISTED_TOOLS`——auto 模式白名单 |
+| `permissions.ts` 的 `hasPermissionsToUseTool()` 函数 | `hasPermissionsToUseTool`——主入口 |
+| `permissions.ts` 的 `hasPermissionsToUseToolInner()` 函数 | `hasPermissionsToUseToolInner`——分层检查 |
+| `bashPermissions.ts` 的 `bashToolHasPermission()` 函数 | `bashToolHasPermission`——Bash 权限入口 |
+| `readOnlyValidation.ts` 的 `COMMAND_ALLOWLIST` | `COMMAND_ALLOWLIST`——只读命令白名单 |
+| `permissionSetup.ts` 的 `initialPermissionModeFromCLI()` 函数 | `initialPermissionModeFromCLI`——模式初始化 |
+| `classifierDecision.ts` 的 `SAFE_YOLO_ALLOWLISTED_TOOLS` | `SAFE_YOLO_ALLOWLISTED_TOOLS`——auto 模式白名单 |
 
 ### 日志方法
 

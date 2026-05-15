@@ -367,12 +367,12 @@ export const getClaudeMds = (memoryFiles: MemoryFileInfo[]): string => {
 
 | 位置 | 看什么 |
 |------|--------|
-| `prompts.ts:444` | `getSystemPrompt` 入口——看完整组装流程 |
-| `prompts.ts:560` | 返回值——看最终 section 列表 |
-| `context.ts:116` | `getSystemContext`——看 git 状态获取 |
-| `context.ts:155` | `getUserContext`——看 CLAUDE.md 加载 |
-| `claudemd.ts:790` | `getMemoryFiles`——看文件遍历 |
-| `claudemd.ts:1153` | `getClaudeMds`——看格式化输出 |
+| `prompts.ts` 的 `getSystemPrompt()` 函数 | `getSystemPrompt` 入口——看完整组装流程 |
+| `prompts.ts` 的返回值 | 返回值——看最终 section 列表 |
+| `context.ts` 的 `getSystemContext()` 函数 | `getSystemContext`——看 git 状态获取 |
+| `context.ts` 的 `getUserContext()` 函数 | `getUserContext`——看 CLAUDE.md 加载 |
+| `claudemd.ts` 的 `getMemoryFiles()` 函数 | `getMemoryFiles`——看文件遍历 |
+| `claudemd.ts` 的 `getClaudeMds()` 函数 | `getClaudeMds`——看格式化输出 |
 
 ### 日志方法
 

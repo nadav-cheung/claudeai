@@ -28,6 +28,8 @@ graph LR
 
 现在我们到达了 Claude Code 的核心——**Agentic Loop** 本身。上一章准备好了 system prompt 和工具列表，本章追踪 API 调用：消息怎么发送给模型、流式响应怎么处理、循环怎么运转。
 
+> **阅读建议**：本章是全书信息密度最高的一章，涉及 AsyncGenerator、流式响应、上下文压缩等概念。建议先通读一遍建立整体印象，再逐段精读。
+
 ---
 
 ## 知识补全：AsyncGenerator
@@ -79,7 +81,7 @@ REPL.tsx 调用 query()
 ### 7.1 query()：AsyncGenerator 入口
 
 ```typescript
-// → src/query.ts:219
+// → src/query.ts 的 query() 函数
 export async function* query(
   params: QueryParams,
 ): AsyncGenerator<
@@ -98,12 +100,42 @@ export async function* query(
 
 `query()` 是一个薄包装——它用 `yield*` 把所有工作委托给 `queryLoop()`。`yield*` 的意思是"把内层生成器的所有 yield 值直接转发给外层消费者"。
 
+### queryLoop 骨架：先看全貌
+
+在深入每一行之前，先用伪代码看整个循环的骨架：
+
+```
+queryLoop(params):
+  state = { messages, turnCount: 1, ... }
+
+  while (true):
+    // 步骤 1-4：上下文管理（预防溢出）
+    裁剪过大工具结果 → Snip 压缩旧结果 → Microcompact → Autocompact
+
+    // 步骤 5：API 调用（核心）
+    for await (event of callModel(messages, systemPrompt, tools)):
+      yield event  → UI 立即渲染
+
+    // 步骤 6：工具执行（如果有 tool_use）
+    if (有工具调用):
+      检查权限 → 执行工具 → 收集结果
+      state = { ...state, messages: [...结果], turnCount++ }
+      continue  // 回到 while(true) 开头
+
+    // 步骤 7-9：循环控制（准备退出）
+    if (没有工具调用):
+      错误恢复（三阶段）→ stop hooks → token budget
+      return { reason: 'completed' }
+```
+
+记住这个骨架——接下来每一节都是对骨架中某一行的展开。
+
 ### 7.2 queryLoop()：while(true) 的九步循环
 
 `queryLoop` 是 Claude Code 的心脏。它是一个 `while (true)` 循环，每轮执行以下步骤：
 
 ```typescript
-// → src/query.ts:241-268（简化版）
+// → src/query.ts 的 queryLoop() 函数（简化版）
 async function* queryLoop(params, consumedCommandUuids) {
   // 不可变参数（循环期间不变）
   const { systemPrompt, userContext, systemContext, canUseTool, maxTurns } = params
@@ -236,7 +268,7 @@ export async function* queryModelWithStreaming({
 API 调用的核心是 `for await...of` 循环：
 
 ```typescript
-// → src/query.ts:659（简化版）
+// → src/query.ts 的 queryLoop() 内部（简化版）
 for await (const message of deps.callModel({
   messages: prependUserContext(messagesForQuery, userContext),
   systemPrompt: fullSystemPrompt,
@@ -307,12 +339,12 @@ for await (const message of deps.callModel({
 
 | 位置 | 看什么 |
 |------|--------|
-| `query.ts:219` | `query()` 入口——看参数结构 |
-| `query.ts:307` | `while(true)` 开始——看每轮初始化 |
-| `query.ts:659` | `for await...of`——看 API 调用和流式事件 |
-| `query.ts:1062` | `!needsFollowUp`——看循环退出条件 |
-| `deps.ts:33` | `productionDeps`——看依赖注入 |
-| `claude.ts:752` | `queryModelWithStreaming`——看真实 API 调用 |
+| `query.ts` 的 `query()` 函数 | 入口——看参数结构 |
+| `query.ts` 的 `queryLoop()` 函数开头 | `while(true)` 开始——看每轮初始化 |
+| `query.ts` 的 `for await...of` 循环 | API 调用和流式事件 |
+| `query.ts` 的 `!needsFollowUp` 检查 | 循环退出条件 |
+| `deps.ts` 的 `productionDeps()` | 依赖注入 |
+| `claude.ts` 的 `queryModelWithStreaming()` | 真实 API 调用 |
 
 ### 日志方法
 

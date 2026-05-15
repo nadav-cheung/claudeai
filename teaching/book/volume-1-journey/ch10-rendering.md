@@ -425,14 +425,14 @@ API SSE 事件到达
 
 | 位置 | 看什么 |
 |------|--------|
-| `ink.tsx:1442` | `render()` 入口——看 React 树如何挂载 |
-| `ink.tsx:440` | `onRender()`——看帧渲染管线 |
-| `ink.tsx:586` | 帧交换和差异对比 |
-| `reconciler.ts:247` | `resetAfterCommit`——看布局触发 |
+| `ink.tsx` 的 `render()` 方法 | `render()` 入口——看 React 树如何挂载 |
+| `ink.tsx` 的 `onRender()` 方法 | `onRender()`——看帧渲染管线 |
+| `ink.tsx` 的帧交换逻辑 | 帧交换和差异对比 |
+| `reconciler.ts` 的 `resetAfterCommit()` | `resetAfterCommit`——看布局触发 |
 | `render-node-to-output.ts` | `renderNodeToOutput`——看 DOM→Screen |
-| `REPL.tsx:2793` | `for await` 循环——看事件消费 |
-| `messages.ts:2930` | `handleMessageFromStream`——看事件分发 |
-| `Message.tsx:58` | `MessageImpl`——看消息类型分发 |
+| `REPL.tsx` 的 `for await` 循环 | `for await` 循环——看事件消费 |
+| `messages.ts` 的 `handleMessageFromStream()` 函数 | `handleMessageFromStream`——看事件分发 |
+| `Message.tsx` 的 `MessageImpl()` 组件 | `MessageImpl`——看消息类型分发 |
 
 ### 日志方法
 

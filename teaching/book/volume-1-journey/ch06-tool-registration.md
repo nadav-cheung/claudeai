@@ -347,12 +347,12 @@ export function assembleToolPool(
 
 | 位置 | 看什么 |
 |------|--------|
-| `Tool.ts:362` | `Tool` 类型定义——看所有字段 |
-| `Tool.ts:783` | `buildTool` 工厂——看默认值填充 |
-| `tools.ts:193` | `getAllBaseTools`——看所有工具的条件包含 |
-| `tools.ts:271` | `getTools`——看过滤和组装流程 |
-| `tools.ts:345` | `assembleToolPool`——看内置 + MCP 合并 |
-| `BashTool.tsx:420` | `BashTool`——看完整工具实现 |
+| `Tool.ts` 的 `Tool` 类型定义 | `Tool` 类型定义——看所有字段 |
+| `Tool.ts` 的 `buildTool()` 函数 | `buildTool` 工厂——看默认值填充 |
+| `tools.ts` 的 `getAllBaseTools()` 函数 | `getAllBaseTools`——看所有工具的条件包含 |
+| `tools.ts` 的 `getTools()` 函数 | `getTools`——看过滤和组装流程 |
+| `tools.ts` 的 `assembleToolPool()` 函数 | `assembleToolPool`——看内置 + MCP 合并 |
+| `BashTool.tsx` 的 `BashTool` 定义 | `BashTool`——看完整工具实现 |
 
 ### 日志方法
 

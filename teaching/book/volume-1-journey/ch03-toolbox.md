@@ -28,6 +28,33 @@ graph LR
 
 你已经在卷零了解了 Claude Code 的七大组件。从本章开始，我们要逐站深入源码，看看每个组件**实际上是怎么实现的**。
 
+### 全书旅程预览
+
+在出发之前，先看看完整的八站旅程。你将追踪用户按下 Enter 键后发生的一切：
+
+```mermaid
+graph LR
+    E["① 入口<br/>ch03"] --> I["② 消息<br/>ch04"]
+    I --> SP["③ 查询引擎准备<br/>ch05-06"]
+    SP --> Q["③ 查询引擎<br/>ch07"]
+    Q --> P["④ 权限<br/>ch11"]
+    P --> T["⑤ 工具执行<br/>ch08"]
+    T --> S["⑦ 状态<br/>ch09"]
+    S -->|"continue"| Q
+    Q --> R["⑥ 渲染<br/>ch10"]
+
+    style E fill:#e8f5e9
+    style I fill:#e8f5e9
+    style SP fill:#e8f5e9
+    style Q fill:#fff3e0
+    style P fill:#fce4ec
+    style T fill:#f3e5f5
+    style R fill:#e0f2f1
+    style S fill:#fff8e1
+```
+
+每个绿色节点是一个"站"，箭头表示数据流向。注意核心循环：查询引擎 → 权限 → 工具执行 → 状态 → 回到查询引擎。这个 `while(true)` 循环就是 Claude Code 的心脏。
+
 第一站：入口文件。当你在终端输入 `claude` 然后按回车，到底发生了什么？
 
 ---
@@ -61,7 +88,7 @@ Claude Code 大量使用 `async/await`，因为几乎所有操作（API 调用�
 Claude Code 用 Bun 打包，有一个特殊能力：`feature()` 函数。
 
 ```typescript
-// → src/entrypoints/cli.tsx:1
+// → src/entrypoints/cli.tsx
 import { feature } from 'bun:bundle'
 ```
 
@@ -105,7 +132,7 @@ if (feature('DUMP_SYSTEM_PROMPT')) {
 当你在终端运行 `claude`，程序从 `src/entrypoints/cli.tsx` 开始：
 
 ```typescript
-// → src/entrypoints/cli.tsx:28-42（简化版）
+// → src/entrypoints/cli.tsx 的 main() 函数（简化版）
 async function main(): Promise<void> {
   const args = process.argv.slice(2)
 
@@ -135,7 +162,7 @@ async function main(): Promise<void> {
 `cli.tsx` 的 `main()` 函数就像一个**调度员**——它检查你的命令，然后把你路由到正确的处理程序。如果没有任何快速路径匹配，它最终会加载完整 CLI：
 
 ```typescript
-// → src/entrypoints/cli.tsx:288-298（简化版）
+// → src/entrypoints/cli.tsx 的完整 CLI 加载（简化版）
 // 没有匹配到快速路径 → 加载完整 CLI
 startCapturingEarlyInput()  // 在启动过程中就开始捕获按键！
 const { main: cliMain } = await import('../main.js')
@@ -149,7 +176,7 @@ await cliMain()
 `src/main.tsx` 是 Claude Code 的"大块头"——它有超过 200 行的导入和复杂的 Commander.js 命令行解析：
 
 ```typescript
-// → src/main.tsx:1-20（导入部分）
+// → src/main.tsx 的导入部分
 // 启动性能追踪（最先执行）
 import { profileCheckpoint } from './utils/startupProfiler.js'
 profileCheckpoint('main_tsx_entry')
@@ -266,10 +293,10 @@ for await (const event of query({
 
 | 位置 | 看什么 |
 |------|--------|
-| `cli.tsx:33` | `main()` 函数入口，看参数解析 |
-| `cli.tsx:288` | 快速路径都不匹配，进入完整 CLI |
-| `main.tsx:1` | 模块级代码——看并行预读取启动 |
-| `init.ts:57` | `init()` 函数——看一次性初始化 |
+| `cli.tsx` 的 `main()` 函数 | `main()` 函数入口，看参数解析 |
+| `cli.tsx` 的完整 CLI 加载 | 快速路径都不匹配，进入完整 CLI |
+| `main.tsx` 的模块级代码 | 模块级代码——看并行预读取启动 |
+| `init.ts` 的 `init()` 函数 | `init()` 函数——看一次性初始化 |
 | `replLauncher.tsx` | `launchRepl()`——看 Ink 渲染启动 |
 
 ### 日志方法

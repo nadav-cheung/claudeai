@@ -318,11 +318,11 @@ if (update.message.type === 'progress') {
 
 | 位置 | 看什么 |
 |------|--------|
-| `StreamingToolExecutor.ts:76` | `addTool`——看并发安全判断 |
-| `StreamingToolExecutor.ts:129` | `canExecuteTool`——看并发分区算法 |
-| `StreamingToolExecutor.ts:265` | `executeTool`——看工具执行启动 |
-| `toolExecution.ts:599` | `checkPermissionsAndCallTool`——看完整 5 步链 |
-| `toolExecution.ts:1207` | `tool.call()`——看实际工具调用 |
+| `StreamingToolExecutor.ts` 的 `addTool()` 方法 | `addTool`——看并发安全判断 |
+| `StreamingToolExecutor.ts` 的 `canExecuteTool()` 方法 | `canExecuteTool`——看并发分区算法 |
+| `StreamingToolExecutor.ts` 的 `executeTool()` 方法 | `executeTool`——看工具执行启动 |
+| `toolExecution.ts` 的 `checkPermissionsAndCallTool()` 函数 | `checkPermissionsAndCallTool`——看完整 5 步链 |
+| `toolExecution.ts` 的 `tool.call()` 调用 | `tool.call()`——看实际工具调用 |
 
 ### 日志方法
 

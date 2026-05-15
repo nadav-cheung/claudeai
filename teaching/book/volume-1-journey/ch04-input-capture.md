@@ -400,11 +400,11 @@ const attachmentMessages = shouldExtractAttachments
 
 | 位置 | 看什么 |
 |------|--------|
-| `handlePromptSubmit.ts:120` | `handlePromptSubmit` 入口——看参数结构 |
-| `processUserInput.ts:85` | `processUserInput` 入口——看输入模式 |
-| `processUserInput.ts:281` | `processUserInputBase`——看分支路由 |
-| `processTextPrompt.ts:19` | `processTextPrompt`——看 UserMessage 创建 |
-| `messages.ts:460` | `createUserMessage`——看消息对象结构 |
+| `handlePromptSubmit.ts` 的 `handlePromptSubmit()` 函数 | `handlePromptSubmit` 入口——看参数结构 |
+| `processUserInput.ts` 的 `processUserInput()` 函数 | `processUserInput` 入口——看输入模式 |
+| `processUserInput.ts` 的 `processUserInputBase()` 函数 | `processUserInputBase`——看分支路由 |
+| `processTextPrompt.ts` 的 `processTextPrompt()` 函数 | `processTextPrompt`——看 UserMessage 创建 |
+| `messages.ts` 的 `createUserMessage()` 函数 | `createUserMessage`——看消息对象结构 |
 
 ### 日志方法
 
