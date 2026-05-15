@@ -142,8 +142,7 @@ async function* queryLoop(params, consumedCommandUuids) {
     messages: params.messages,
     toolUseContext: params.toolUseContext,
     turnCount: 1,
-    maxOutputTokensRecoveryCount: 0,
-    hasAttemptedReactiveCompact: false,
+    // ... maxOutputTokensRecoveryCount, hasAttemptedReactiveCompact, etc.
   }
 
   while (true) {
