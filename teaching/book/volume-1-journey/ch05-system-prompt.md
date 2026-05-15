@@ -294,20 +294,20 @@ Always add explicit return types to TypeScript functions.
 
 ```markdown
 # CLAUDE.md（项目根目录）
-Always follow the coding standards in @./docs/coding-standards.md
-Use the API patterns described in @./docs/api-patterns.md
+遵循 @./docs/coding-standards.md 中的编码规范
+使用 @./docs/api-patterns.md 中描述的 API 模式
 
 # docs/coding-standards.md
-## TypeScript Rules
-- Use strict mode
-- Prefer const over let
-See also: @./naming-conventions.md
+## TypeScript 规则
+- 使用 strict 模式
+- 优先使用 const 而非 let
+另见：@./naming-conventions.md
 
 # docs/naming-conventions.md
-## Naming Conventions
-- camelCase for variables and functions
-- PascalCase for classes and interfaces
-- UPPER_SNAKE_CASE for constants
+## 命名约定
+- 变量和函数使用 camelCase
+- 类和接口使用 PascalCase
+- 常量使用 UPPER_SNAKE_CASE
 ```
 
 加载顺序：`naming-conventions.md` → `coding-standards.md` → `api-patterns.md` → `CLAUDE.md`。被 include 的文件总是排在 include 它的文件**之前**，这样外层文件的指令可以覆盖内层的默认值。循环引用会被自动检测并跳过。

@@ -77,7 +77,7 @@ let state: State = {
 每轮 API 调用后，`queryLoop` 检查模型是否请求了工具调用：
 
 ```typescript
-// → src/query.ts（简化版）
+// → src/query.ts 的 queryLoop() 函数（简化版）
 if (!needsFollowUp) {
   // 模型没有请求工具调用 → 对话可以结束
   // ... 但先检查是否有错误需要恢复 ...
@@ -98,7 +98,7 @@ if (!needsFollowUp) {
 **什么是 Collapse drain**：ch07 的 Microcompact 阶段会将一些旧消息标记为"折叠"（collapsed），但不立即删除——因为删除会改变 prompt 的字节前缀，破坏 Prompt Cache。drain 的意思是"释放这些已暂存的折叠"，真正删除它们来腾出空间。
 
 ```typescript
-// → src/query.ts（简化版）
+// → src/query.ts 的 queryLoop() 函数（简化版）
 if (isPromptTooLongError(lastMessage)) {
   // 尝试释放已暂存的折叠
   const drainResult = await drainCollapsedMessages(messages)
@@ -126,7 +126,7 @@ if (isPromptTooLongError(lastMessage)) {
 **原理**：调用模型对整个对话历史生成摘要，用摘要替换原始消息。
 
 ```typescript
-// → src/query.ts（简化版）
+// → src/query.ts 的 queryLoop() 函数（简化版）
 if (shouldAttemptReactiveCompact) {
   const compactResult = await reactiveCompact(messages, systemPrompt, model)
 
@@ -158,7 +158,7 @@ if (shouldAttemptReactiveCompact) {
 **原理**：Claude API 对每次回复的 token 数有限制。默认是 8K tokens。对于需要长回复的场景（如生成大段代码），8K 可能不够。
 
 ```typescript
-// → src/query.ts（简化版）
+// → src/query.ts 的 queryLoop() 函数（简化版）
 if (isWithheldMaxOutputTokens(lastMessage)) {
   // 第一次遇到：从默认 8K 升级到 64K
   if (maxOutputTokensOverride === undefined) {
@@ -214,7 +214,7 @@ graph TD
 即使模型没有请求工具（`!needsFollowUp`）且没有错误，stop hooks 仍可能拦截：
 
 ```typescript
-// → src/query.ts（简化版）
+// → src/query.ts 的 queryLoop() 函数（简化版）
 const stopHookResult = yield* handleStopHooks(...)
 
 if (stopHookResult.preventContinuation) {
@@ -249,7 +249,7 @@ Stop hooks 的三种行为：
 如果启用了 token 预算（通过配置或 API 参数）：
 
 ```typescript
-// → src/query.ts（简化版）
+// → src/query.ts 的 queryLoop() 函数（简化版）
 const decision = checkTokenBudget(budgetTracker, ...)
 if (decision.action === 'continue') {
   // 还没达到预算上限 → 注入鼓励消息后继续
@@ -267,7 +267,7 @@ Token budget 的设计很克制——达到上限时不是硬性截断，而是�
 当 `needsFollowUp` 为 `true`（有工具需要执行）时，循环走另一条路径：
 
 ```typescript
-// → src/query.ts（简化版）
+// → src/query.ts 的 queryLoop() 函数（简化版）
 // 执行所有工具（流式获取结果）
 const toolUpdates = streamingToolExecutor
   ? streamingToolExecutor.getRemainingResults()
@@ -300,7 +300,7 @@ continue  // 回到 while(true) 开头
 一个重要的循环保护机制——如果模型连续多轮只产生很少的输出，自动停止：
 
 ```typescript
-// → src/query.ts（简化版）
+// → src/query.ts 的 queryLoop() 函数（简化版）
 // 检查最近几轮的产出
 if (turnCount > 3 && lastOutputTokenCount < DIMINISHING_RETURN_THRESHOLD) {
   consecutiveLowOutputTurns++

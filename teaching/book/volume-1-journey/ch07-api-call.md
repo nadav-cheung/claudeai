@@ -203,7 +203,7 @@ graph TD
 `deps` 是依赖注入机制——生产环境用真实 API，测试环境可以注入 mock：
 
 ```typescript
-// → src/query/deps.ts:33
+// → src/query/deps.ts 的 productionDeps() 函数
 export function productionDeps(): QueryDeps {
   return {
     callModel: queryModelWithStreaming,  // 真实 API 调用
@@ -217,7 +217,7 @@ export function productionDeps(): QueryDeps {
 `queryModelWithStreaming` 是实际的 API 调用：
 
 ```typescript
-// → src/services/api/claude.ts:752（简化版）
+// → src/services/api/claude.ts 的 queryModelWithStreaming() 函数（简化版）
 export async function* queryModelWithStreaming({
   messages, systemPrompt, thinkingConfig, tools, signal, options,
 }): AsyncGenerator<StreamEvent | AssistantMessage> {

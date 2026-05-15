@@ -344,7 +344,7 @@ export function createUserMessage({
 `UserMessage` 对象的核心结构：
 
 ```typescript
-// → src/types/message.js（Bun 虚拟模块，构建时解析）
+// → src/types/message.js 的 UserMessage 类型（Bun 虚拟模块，构建时解析）
 type UserMessage = {
   type: 'user'                    // 消息类型标识
   message: {
