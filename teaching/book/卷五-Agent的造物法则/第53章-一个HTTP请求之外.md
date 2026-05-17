@@ -223,6 +223,311 @@ export class ApiError extends Error {
 
 ---
 
+## 第六步：不只是 POST — HTTP 的隐藏细节
+
+前面 30 行代码已经能跟 Claude 对话了。但那是理想环境——你的笔记本电脑、家里的 Wi-Fi、直接的互联网连接。真实世界要脏得多。
+
+### 6.1 HTTP/2 多路复用
+
+Messages API 默认使用 HTTP/2。HTTP/2 和 HTTP/1.1 之间有一个关键差异：**多路复用（Multiplexing）**。
+
+```
+HTTP/1.1:
+  连接1 ──→ 请求1 → 响应1 → 请求2 → 响应2
+  连接2 ──→ 请求3 → 响应3
+  (每个连接同时只能处理一个请求)
+
+HTTP/2:
+  连接1 ──→ 请求1 ──→ 响应1
+       ──→ 请求2 ──→ 响应2
+       ──→ 请求3 ──→ 响应3
+  (一个连接同时承载多个请求)
+```
+
+对 Agent 框架这意味着什么？当你的 Agent Loop 同时 fork 出 3 个子 Agent，它们都通过同一个 ApiClient 发送请求。HTTP/2 的多路复用让这 3 个请求共享一个 TCP 连接，不会排队等待。
+
+Node.js 的 `fetch()` 原生支持 HTTP/2——你不需要做任何事。服务端在 TLS 握手阶段通过 ALPN（Application-Layer Protocol Negotiation）协商协议，如果服务端支持 HTTP/2，客户端自动升级。
+
+### 6.2 TLS 1.3 握手
+
+每次 API 调用发生之前还有一个 TLS 握手：
+
+```mermaid
+sequenceDiagram
+    participant C as 你的 Agent
+    participant A as api.anthropic.com
+
+    C->>A: ClientHello
+    A->>C: ServerHello + 证书
+    C->>C: 验证证书链
+    C->>A: Finished
+    A->>C: Finished
+    Note over C,A: 从现在开始，所有数据加密传输
+
+    C->>A: POST /v1/messages (加密)
+    A-->>C: 200 OK (加密)
+```
+
+TLS 1.3 的握手只需要 1-RTT。加上 TCP 三次握手（1-RTT），整个连接建立约 2-RTT。到 `api.anthropic.com` 的典型 RTT 是 50-150ms（取决于地理位置），所以每次新连接的 TLS 开销约 100-300ms。
+
+当然，这个开销只发生在**新连接**上。Node.js 的 HTTP 客户端维护连接池，后续请求复用现有连接——这就是 HTTP keep-alive 的作用。
+
+### 6.3 企业环境中的自定义 CA 证书
+
+在个人开发环境中，`fetch("https://api.anthropic.com")` 直接能通——你的系统信任 Anthropic 的证书（由公共 CA 签发）。
+
+但在企业网络中，流量可能被企业代理解密和重签。这时 Anthropic 的证书会被替换为企业自签名证书，Node.js 不信任它：
+
+```
+UNABLE_TO_VERIFY_LEAF_SIGNATURE
+```
+
+解决办法：
+
+```bash
+# 告诉 Node.js 信任企业的 CA 证书
+export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/corporate-ca.pem
+```
+
+在你的 Agent 框架中，应该支持自定义 CA：
+
+```typescript
+// → ApiClient 配置中支持自定义 CA
+export interface ApiClientConfig {
+  apiKey: string
+  baseUrl?: string
+  ca?: string  // 自定义 CA 证书路径
+}
+
+// 在 fetch 时通过 undici agent 传入
+import { Agent } from "undici"
+import { readFileSync } from "fs"
+
+function createDispatcher(config: ApiClientConfig) {
+  if (config.ca) {
+    return new Agent({
+      connect: { ca: readFileSync(config.ca) }
+    })
+  }
+  return undefined  // 使用默认行为
+}
+```
+
+### 6.4 企业代理穿透
+
+企业网络环境中，直接出站连接可能被阻断。所有流量必须通过 HTTP 代理：
+
+```
+你的 Agent → 企业代理 (proxy.corp.com:8080) → api.anthropic.com
+```
+
+Node.js 读取 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量，但 `fetch()` API 不自动使用它们。你需要手动实现代理支持：
+
+```typescript
+// → 最简代理支持（使用 undici ProxyAgent）
+import { ProxyAgent } from "undici"
+
+function getProxyDispatcher(): ProxyAgent | undefined {
+  const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY
+  if (!proxyUrl) return undefined
+  return new ProxyAgent({ uri: proxyUrl })
+}
+
+const response = await fetch(url, {
+  method: "POST",
+  headers,
+  body,
+  dispatcher: getProxyDispatcher(),  // 经过代理发送
+})
+```
+
+**NO_PROXY 规则**：某些地址应该绕过代理。常见规则包括 `localhost`、`127.0.0.1`、内部域名。`NO_PROXY` 环境变量用逗号分隔域名列表。在你的 Agent 框架中，应该尊重这个约定：
+
+```typescript
+function shouldBypassProxy(host: string): boolean {
+  const noProxy = process.env.NO_PROXY?.split(",").map(s => s.trim()) ?? []
+  return noProxy.some(pattern =>
+    host === pattern || host.endsWith("." + pattern)
+  )
+}
+```
+
+---
+
+## 第七步：当网络不可靠 — 重试与韧性
+
+`fetch()` 不是 100% 可靠的。网络抖动、服务过载、临时的 DNS 故障都会让请求失败。Agent 框架必须处理这些。
+
+### 7.1 哪些错误值得重试
+
+重试决策的第一原则：**只重试那些可能在下一次成功的错误**。
+
+| HTTP 状态码 | 含义 | 重试？ | 原因 |
+|------------|------|--------|------|
+| 429 | 速率限制 | ✓ 重试 | 等一段时间后配额恢复 |
+| 529 | 服务过载 | ✓ 重试 | 过载是暂时的 |
+| 500/502/503 | 服务端错误 | ✓ 重试 | 可能是暂时故障 |
+| 400 | 参数错误 | ✗ 不重试 | 重试不会改变结果 |
+| 401/403 | 认证/权限 | ✗ 不重试 | 凭据不会自动变有效 |
+| 404 | 模型不存在 | ✗ 不重试 | 模型名不会自动变对 |
+
+### 7.2 指数退避
+
+重试不是立即重试——如果服务端正在过载，立即重试只会加剧问题。正确做法是**指数退避**：
+
+```typescript
+// → 带指数退避的 fetch
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  retries = 3,
+): Promise<Response> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, options)
+
+      if ((response.status === 429 || response.status >= 500) && attempt < retries) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 30000)
+        await sleep(delay + Math.random() * 1000) // + jitter 防惊群
+        continue
+      }
+
+      return response
+    } catch (err) {
+      if (attempt === retries) throw err
+      const delay = Math.min(1000 * Math.pow(2, attempt), 30000)
+      await sleep(delay + Math.random() * 1000)
+    }
+  }
+
+  throw new Error("unreachable")
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+```
+
+三个关键设计：
+- **指数因子 2**：1s → 2s → 4s → 8s → ... → 封顶 30s
+- **Jitter**：每次等待时间加 `Math.random() * 1000`（0-1秒随机值），防止多个 Agent 实例同时重试
+- **最大等待**：不无限增加，封顶 30 秒
+
+### 7.3 速率限制与令牌桶
+
+Anthropic API 有速率限制。429 响应头的 `Retry-After` 字段告诉你需要等多久。但更好的方式是自己管理速率——**通过令牌桶**：
+
+```typescript
+// → 令牌桶速率限制器
+class TokenBucket {
+  private tokens: number
+  private lastRefill: number
+
+  constructor(
+    private maxTokens: number,    // 桶容量
+    private refillRate: number,   // 每秒补充的 token 数
+  ) {
+    this.tokens = maxTokens
+    this.lastRefill = Date.now()
+  }
+
+  async acquire(tokens = 1): Promise<void> {
+    this.refill()
+
+    if (this.tokens >= tokens) {
+      this.tokens -= tokens
+      return
+    }
+
+    // 计算需要等待多少秒
+    const deficit = tokens - this.tokens
+    const waitMs = (deficit / this.refillRate) * 1000 + 50
+    await sleep(waitMs)
+
+    this.refill()
+    this.tokens -= tokens
+  }
+
+  private refill(): void {
+    const now = Date.now()
+    const elapsed = (now - this.lastRefill) / 1000
+    this.tokens = Math.min(this.maxTokens, this.tokens + elapsed * this.refillRate)
+    this.lastRefill = now
+  }
+}
+
+// 使用：每分钟最多 50 次请求
+const limiter = new TokenBucket(50, 50 / 60)
+await limiter.acquire(1)
+```
+
+### 7.4 连接池与 DNS 行为
+
+Node.js 的 `fetch()` 底层使用 undici HTTP 客户端，它维护一个连接池。默认行为：
+
+- 每个 origin（如 `api.anthropic.com`）最多保持 8 个并行连接
+- 空闲连接在 15 秒后关闭
+- DNS 结果缓存至 TTL 过期
+
+在大部分 Agent 场景中这些默认值够用。但如果你的框架并发 fork 了 20 个子 Agent，可能需要调大连接池：
+
+```typescript
+import { Agent, setGlobalDispatcher } from "undici"
+
+setGlobalDispatcher(new Agent({
+  connections: 16,               // 每个 origin 最多 16 个连接
+  keepAliveTimeout: 30_000,      // 空闲连接保持 30 秒
+}))
+```
+
+---
+
+## 封装：升级版 ApiClient
+
+将网络韧性整合进 ApiClient：
+
+```typescript
+// → src/my-agent/api-client.ts (升级版)
+export class ApiClient {
+  private rateLimiter: TokenBucket
+  private dispatcher: ProxyAgent | undefined
+
+  constructor(config: ApiClientConfig) {
+    this.baseUrl = config.baseUrl ?? "https://api.anthropic.com/v1"
+    this.headers = { /* 同上 */ }
+    this.rateLimiter = new TokenBucket(
+      config.rpm ?? 50,
+      (config.rpm ?? 50) / 60,
+    )
+    this.dispatcher = getProxyDispatcher()  // 仅在代理环境创建
+  }
+
+  async createMessage(params: MessageCreateParams): Promise<MessageResponse> {
+    await this.rateLimiter.acquire(1)  // 控速
+
+    const response = await fetchWithRetry(
+      `${this.baseUrl}/messages`,
+      {
+        method: "POST",
+        headers: this.headers,
+        body: JSON.stringify(params),
+        dispatcher: this.dispatcher,
+      },
+      3  // 最多重试 3 次
+    )
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new ApiError(response.status, error)
+    }
+
+    return response.json()
+  }
+}
+```
+
+---
+
 ## 试试看
 
 **任务 1**：用上面的 `ApiClient` 发一条消息，打印 `response.content[0].text`。
@@ -251,6 +556,9 @@ await client.createMessage({
 | `404 not_found_error` | 模型名拼写错误 | 对照[模型列表](https://docs.anthropic.com/en/docs/about-claude/models) |
 | 响应为空 | `max_tokens` 设为 0 | `max_tokens: 0` 是缓存预热模式，不返回内容 |
 | `529 overloaded_error` | 服务过载 | 等几秒后重试，实现指数退避 |
+| `ECONNREFUSED` | 直接出站被阻断 | `curl -v https://api.anthropic.com` 检查；可能需要配置代理 |
+| `ETIMEDOUT` | 代理地址错误 | `echo $HTTPS_PROXY` 确认代理 URL 格式正确 |
+| `UNABLE_TO_VERIFY_LEAF_SIGNATURE` | 企业代理做 TLS 拦截 | 设置 `NODE_EXTRA_CA_CERTS` 指向企业 CA 证书 |
 
 ---
 
@@ -261,7 +569,11 @@ await client.createMessage({
 - [ ] 理解了 `anthropic-version` header 的版本控制机制
 - [ ] 能区分六种错误类型并实现重试判断
 - [ ] 知道 `content` 是数组结构（不是纯字符串）
+- [ ] 理解 HTTP/2 多路复用对并发 Agent 请求的意义
+- [ ] 能配置 TLS 自定义 CA 和 HTTP 代理穿透
+- [ ] 能实现指数退避重试和令牌桶速率限制
+- [ ] 理解 TLS 握手的开销（~1-RTT）和连接池的默认行为
 
 ---
 
-[← 上一章：第 52 章 稳定、历史与未来](../卷四-架构师的棋盘/第52章-稳定历史与未来.md) | [下一章：第 54 章 消息的形状 →](./第54章-消息的形状.md)
+[← 上一章：第 52.5 章 Token 经济学](../卷四-架构师的棋盘/第52.5章-Token经济学.md) | [下一章：第 54 章 消息的形状 →](./第54章-消息的形状.md)
