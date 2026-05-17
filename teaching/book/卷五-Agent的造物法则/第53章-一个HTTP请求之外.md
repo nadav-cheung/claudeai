@@ -16,7 +16,7 @@ graph LR
     CH53 --> CH54["第 54 章<br/>消息的形状"]
     CH54 --> CH55["第 55 章<br/>文字如溪流"]
     CH55 --> CH56["第 56 章<br/>工具调用的双面人生"]
-    CH56 --> V5B["卷五后半<br/>(Ch57-62)"]
+    CH56 --> V5B["卷五后半<br/>(Ch57-66)"]
 
     style V4 fill:#e0e0e0,stroke:#999
     style CH53 fill:#FF8F00,color:#fff,stroke:#333
