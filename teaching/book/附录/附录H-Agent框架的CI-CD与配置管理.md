@@ -512,6 +512,108 @@ stateDiagram-v2
 
 ---
 
+### 告警阈值与 Runbook
+
+前面讲了 Graceful Shutdown、健康检查、熔断器。但凌晨 3 点出故障时，谁会醒来？他们能多快定位问题？
+
+**告警阈值配置**：
+
+```yaml
+# alerts.yml — 告警规则
+alerts:
+  - name: high_error_rate
+    metric: agent.tool.error_rate
+    threshold: "> 5%"
+    window: 5m
+    severity: critical
+    message: "Agent 工具调用错误率超过 5%"
+
+  - name: high_cost_rate
+    metric: agent.session.cost_per_minute
+    threshold: "> $2/min"
+    window: 10m
+    severity: warning
+    message: "Agent 成本异常升高"
+
+  - name: api_unhealthy
+    metric: agent.health.api_status
+    threshold: "!= ok"
+    window: 2m
+    severity: critical
+    message: "API 不可用"
+
+  - name: circuit_open
+    metric: agent.circuit.state
+    threshold: "== OPEN"
+    severity: critical
+    message: "熔断器已打开"
+
+  - name: high_loop_count
+    metric: agent.turn.count_p95
+    threshold: "> 20"
+    window: 15m
+    severity: warning
+    message: "P95 循环次数 > 20，可能存在死循环"
+```
+
+**告警升级策略**：
+
+```
+Critical 告警触发:
+  T+0min   → PagerDuty 通知值班 SRE
+  T+10min  → 无响应 → 升级到 Team Lead
+  T+30min  → 无响应 → 升级到 Engineering Manager
+
+Warning 告警触发:
+  T+0min   → Slack #agent-alerts 频道
+  T+60min  → 未解决 → 升级为 Critical
+```
+
+**Incident Runbook 模板**：
+
+```markdown
+# Incident: [告警名称]
+
+## 1. 确认故障 (2 分钟)
+- [ ] 检查 Grafana dashboard: agent-health
+- [ ] 检查 Anthropic Status: https://status.anthropic.com
+- [ ] 检查 K8s pod: kubectl get pods -l app=agent
+
+## 2. 分类 (3 分钟)
+
+### 如果 API 不可用 (anthropic status != green)
+→ 这是上游故障，无操作可做
+→ 通知 #incidents: "Anthropic API 不可用，等待恢复"
+→ 如果持续 > 30min，考虑切换到备选模型
+
+### 如果错误率升高 (api is green)
+→ 检查最近的部署: kubectl describe deployment agent
+→ 如果是 5 分钟内的部署 → 立即回滚: kubectl rollout undo deployment agent
+→ 检查日志: kubectl logs -l app=agent --tail=100 | grep ERROR
+
+### 如果熔断器打开
+→ 检查 API latency: Grafana → agent-api-latency
+→ 如果 P95 > 5s → API 慢，不是你的问题
+→ 如果 P95 < 1s → 可能是某类请求 100% 失败，检查日志
+
+## 3. 缓解 (5 分钟)
+- [ ] 回滚最近部署 (如果适用)
+- [ ] 切换到备选模型 (如果 API 故障)
+- [ ] 扩容: kubectl scale deployment agent --replicas=N+2
+
+## 4. 恢复验证
+- [ ] 错误率回到基线
+- [ ] 熔断器关闭
+- [ ] 健康检查通过
+
+## 5. 事后
+- [ ] 写 Postmortem (模板: docs/postmortems/template.md)
+- [ ] 如果是代码问题: 开 Issue
+- [ ] 如果是配置问题: 更新 runbook
+```
+
+---
+
 ## H.5 版本发布 Checklist
 
 发布新版本前：
