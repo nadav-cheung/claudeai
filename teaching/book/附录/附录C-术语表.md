@@ -145,19 +145,19 @@
 
 ## 跨卷核心概念对照
 
-下表列出贯穿全书多个卷的核心概念及其首次出现的章节：
+下表列出贯穿全书多个卷的核心概念及其首次出现的章节（使用 V3 全局章节编号 ch01-ch52）：
 
-| 概念 | 类型 | 首次出现 | 核心卷 |
+| 概念 | 类型 | 首次出现 | 所在章 |
 |------|------|---------|--------|
-| `query()` / `queryLoop()` | 函数 | 卷一 ch07 | 卷一（消息旅程） |
-| `AsyncGenerator` yield 链 | 模式 | 卷一 ch07 | 卷一 + 卷二（引擎室） |
-| `createSignal()` | 函数 | 卷二 ch09 | 卷二（状态管理） |
-| `PermissionMode` | 类型 | 卷二 ch11 | 卷二（权限系统） |
-| Ink + Fiber Reconciler | 框架 | 卷三 ch10 | 卷三（TUI 渲染） |
-| `buildTool()` 工厂 | 函数 | 卷四 ch08 | 卷四（工具架构） |
-| MCP 协议 | 协议 | 卷四 ch14 | 卷四（扩展系统） |
-| Prompt Cache | 特性 | 卷一 ch06 | 卷一（性能优化） |
-| Compaction 管线 | 策略 | 卷二 ch12 | 卷二（上下文管理） |
-| Hook 生命周期 | 机制 | 卷四 ch15 | 卷四（插件系统） |
-| Zod Schema | 库 | 附录 B | 卷四（工具验证） |
-| Skill 系统 | 机制 | 卷四 ch15 | 卷四（技能扩展） |
+| `query()` / `queryLoop()` | 函数 | ch07 | 第 7 章：信封飞向远方 |
+| `AsyncGenerator` yield 链 | 模式 | ch07 | 第 7 章：信封飞向远方（知识补全） |
+| `createSignal()` | 函数 | ch17 | 第 17 章：打开引擎室的门（状态管理） |
+| `PermissionMode` | 类型 | ch22 | 第 22 章：安全门卫 |
+| Ink + Fiber Reconciler | 框架 | ch19 | 第 19 章：React 在终端里奔跑 |
+| `buildTool()` 工厂 | 函数 | ch20 | 第 20 章：工具的 DNA |
+| MCP 协议 | 协议 | ch25 | 第 25 章：外部世界的入口 |
+| Prompt Cache | 特性 | ch05 | 第 5 章：消息被装进信封（动态边界） |
+| Compaction 管线 | 策略 | ch13 | 第 13 章：对话越来越长 |
+| Hook 生命周期 | 机制 | ch24 | 第 24 章：Hook 系统 |
+| Zod Schema | 库 | 附录 B | 附录 B：Java 到 TypeScript 迁移 |
+| Skill 系统 | 机制 | ch23 | 第 23 章：斜杠命令与插件系统 |

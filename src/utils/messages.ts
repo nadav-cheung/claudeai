@@ -2139,7 +2139,7 @@ export function normalizeMessagesForAPI(
           // Server renders tool_reference expansion as <functions>...</functions>
           // (same tags as the system prompt's tool block). When this is at the
           // prompt tail, capybara models sample the stop sequence at ~10% (A/B:
-          // 21/200 vs 0/200 on v3-prod). A sibling text block inserts a clean
+          // 21/200 vs 0/200 on book-prod). A sibling text block inserts a clean
           // "\n\nHuman: ..." turn boundary. Injected here (API-prep) rather than
           // stored in the message so it never renders in the REPL, and is
           // auto-skipped when strip* above removes all tool_reference content.
@@ -2676,7 +2676,7 @@ export function normalizeContentFromAPI(
         if (typeof contentBlock.input === 'string') {
           const parsed = safeParseJSON(contentBlock.input)
           if (parsed === null && contentBlock.input.length > 0) {
-            // TET/FC-v3 diagnostic: the streamed tool input JSON failed to
+            // TET/FC-book diagnostic: the streamed tool input JSON failed to
             // parse. We fall back to {} which means downstream validation
             // sees empty input. The raw prefix goes to debug log only — no
             // PII-tagged proto column exists for it yet.

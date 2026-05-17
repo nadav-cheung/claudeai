@@ -79,7 +79,7 @@
 
 按功能模块分组，列出 Claude Code 源码中最关键的函数及其职责。
 
-### 入口与初始化（卷一 ch03）
+### 入口与初始化（第 3 章）
 
 | 函数 | 文件 | 一句话描述 |
 |------|------|-----------|
@@ -87,7 +87,7 @@
 | `main()` | `main.tsx` | 完整 CLI 初始化（认证、Bootstrap、工具组装） |
 | `init()` | `init.ts` | 一次性初始化（memoized） |
 
-### 消息处理（卷一 ch04）
+### 消息处理（第 4 章）
 
 | 函数 | 文件 | 一句话描述 |
 |------|------|-----------|
@@ -96,7 +96,7 @@
 | `processTextPrompt()` | `processTextPrompt.ts` | 文本输入处理 |
 | `createUserMessage()` | `messages.ts` | 创建消息对象 |
 
-### 查询引擎（卷一 ch05-ch07）
+### 查询引擎（第 5-7 章）
 
 | 函数 | 文件 | 一句话描述 |
 |------|------|-----------|
@@ -112,7 +112,7 @@
 | `productionDeps()` | `deps.ts` | 依赖注入，绑定真实 API 调用 |
 | `queryModelWithStreaming()` | `claude.ts` | 流式 API 调用，返回 AsyncGenerator |
 
-### 权限系统（卷二 ch11）
+### 权限系统（第 22 章）
 
 | 函数 | 文件 | 一句话描述 |
 |------|------|-----------|
@@ -122,7 +122,7 @@
 | `COMMAND_ALLOWLIST` | `readOnlyValidation.ts` | 只读命令白名单常量 |
 | `initialPermissionModeFromCLI()` | `permissionSetup.ts` | 根据 CLI 参数确定初始权限模式 |
 
-### 工具执行（卷二 ch08）
+### 工具执行（第 21 章）
 
 | 函数 | 文件 | 一句话描述 |
 |------|------|-----------|
@@ -130,7 +130,7 @@
 | `canExecuteTool()` | `StreamingToolExecutor.ts` | 判断工具是否满足并发安全条件 |
 | `checkPermissionsAndCallTool()` | `toolExecution.ts` | 权限检查 + 执行的 5 步链 |
 
-### 状态管理（卷二 ch09）
+### 状态管理（第 17 章）
 
 | 函数/概念 | 文件 | 一句话描述 |
 |----------|------|-----------|
@@ -138,7 +138,7 @@
 | 三阶段恢复 | `query.ts` | Collapse drain → Reactive Compact → Max Token 升级 |
 | `handleStopHooks()` | `query.ts` | 会话结束时的 Stop hook 处理 |
 
-### 渲染系统（卷三 ch10）
+### 渲染系统（第 19 章）
 
 | 函数 | 文件 | 一句话描述 |
 |------|------|-----------|

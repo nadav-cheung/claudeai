@@ -1114,7 +1114,7 @@ export async function lockCurrentVersion(): Promise<void> {
           `Acquired mtime-based lock on running version: ${versionPath}`,
         )
 
-        // Release lock explicitly; proper-lockfile's cleanup is unreliable with signal-exit v3+v4
+        // Release lock explicitly; proper-lockfile's cleanup is unreliable with signal-exit book+v4
         registerCleanup(async () => {
           try {
             await release?.()

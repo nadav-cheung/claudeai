@@ -10,7 +10,7 @@ import { getValidationTip } from './validationTips.js'
 
 /**
  * Helper type guards for specific Zod v4 issue types
- * In v4, issue types have different structures than v3
+ * In v4, issue types have different structures than book
  */
 function isInvalidTypeIssue(issue: ZodIssue): issue is ZodIssue & {
   code: 'invalid_type'

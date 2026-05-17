@@ -286,33 +286,9 @@ try {
 
 ## 创建自定义 Agent
 
-你可以创建自己的 Agent。在项目的 `.claude/agents/` 目录下创建一个 Markdown 文件：
+你可以创建自己的 Agent，定义文件放在 `.claude/agents/` 目录下。Agent 定义是一个 Markdown 文件，frontmatter 指定 `tools`（工具列表）、`max_turns`（最大轮数）、`description`（触发条件），正文是 Agent 的 system prompt。
 
-```markdown
----
-description: "Inspect database schema, indexes, and performance"
-tools:
-  - Bash
-  - Read
-  - Grep
-max_turns: 15
----
-
-You are a database inspector agent. Your job is to analyze database schema and performance.
-
-When asked to inspect a database:
-1. Start by listing all tables: `psql $DATABASE_URL -c "\dt"`
-2. Describe the relevant tables: `psql $DATABASE_URL -c "\d table_name"`
-3. Check indexes on frequently queried columns
-4. Report findings in a structured format
-
-Keep your analysis under 500 words.
-```
-
-Agent 的 frontmatter 字段和 `AgentDefinition` 是对应的：
-- **`tools`**——Agent 可以使用的工具列表
-- **`max_turns`**——最大对话轮数
-- **`description`**——什么时候使用这个 Agent
+下一章（第 36 章「开发完整插件」的「创建 Agent」一节）会给出完整的 db-inspector Agent 创建示例，这里不重复。本章聚焦于 Agent 的运行机制——`runAgent` 的 AsyncGenerator 模式、会话隔离、和 Team 协作架构。
 
 ---
 
