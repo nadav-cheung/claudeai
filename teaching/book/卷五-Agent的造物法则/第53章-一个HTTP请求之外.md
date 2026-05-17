@@ -528,6 +528,156 @@ export class ApiClient {
 
 ---
 
+## 第八步：当 API 不可用 — 本地模型与 Ollama
+
+你的 Agent 框架默认调用 Anthropic API。但在以下场景中你需要备选方案：
+
+- 离线环境（无互联网连接）
+- 敏感数据不能离开本地
+- API 费用太高，简单任务想用免费模型
+- Anthropic API 宕机时的降级
+
+**Ollama** 是运行本地模型最简单的方式。它提供与 OpenAI 兼容的 HTTP API。
+
+### 安装和启动
+
+```bash
+# 安装 Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 拉取模型
+ollama pull llama3.2        # 3B 参数，轻量
+ollama pull qwen2.5-coder   # 代码特化，中文好
+ollama pull mistral          # 通用，7B
+
+# 启动服务（默认 localhost:11434）
+ollama serve
+```
+
+### 适配 ApiClient
+
+Ollama 的 API 与 OpenAI 兼容，但 Messages API 略有不同。你需要一个适配层：
+
+```typescript
+// → src/my-agent/providers/ollama.ts
+interface OllamaConfig {
+  baseUrl: string  // "http://localhost:11434"
+  model: string    // "qwen2.5-coder:latest"
+}
+
+class OllamaClient {
+  constructor(private config: OllamaConfig) {}
+
+  async createMessage(params: MessageCreateParams): Promise<MessageResponse> {
+    // Ollama 的 API 格式与 Anthropic 不同，需要转换
+    const ollamaBody = {
+      model: this.config.model,
+      messages: this.convertMessages(params.messages),
+      stream: false,
+      options: {
+        temperature: params.temperature ?? 0.3,
+        num_predict: params.max_tokens,
+      },
+    }
+
+    const response = await fetch(`${this.config.baseUrl}/api/chat`, {
+      method: "POST",
+      body: JSON.stringify(ollamaBody),
+    })
+
+    const data = await response.json()
+    return this.convertResponse(data)
+  }
+
+  private convertMessages(messages: MessageParam[]): Array<{ role: string; content: string }> {
+    return messages.map(m => ({
+      role: m.role,
+      content: typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+    }))
+  }
+
+  private convertResponse(data: any): MessageResponse {
+    return {
+      id: data.id ?? `local-${Date.now()}`,
+      type: "message",
+      role: "assistant",
+      model: this.config.model,
+      content: [{ type: "text", text: data.message?.content ?? "" }],
+      stop_reason: "end_turn",
+      stop_sequence: null,
+      usage: {
+        input_tokens: data.prompt_eval_count ?? 0,
+        output_tokens: data.eval_count ?? 0,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+      },
+    }
+  }
+}
+```
+
+### 多供应商抽象
+
+ApiClient 和 OllamaClient 都是 HTTP 调用，但 API 格式不同。把它们统一到同一个接口下：
+
+```typescript
+// → src/my-agent/provider-interface.ts
+interface LLMProvider {
+  createMessage(params: MessageCreateParams): Promise<MessageResponse>
+  createMessageStream(params: MessageCreateParams): AsyncGenerator<SSEEvent>
+  supportsFeature(feature: string): boolean  // thinking? caching? tools?
+}
+
+class ProviderRouter {
+  private providers = new Map<string, LLMProvider>()
+
+  register(name: string, provider: LLMProvider): void {
+    this.providers.set(name, provider)
+  }
+
+  get(modelId: string): LLMProvider {
+    // 按模型名路由
+    if (modelId.startsWith("claude-")) return this.providers.get("anthropic")!
+    if (modelId.startsWith("gpt-")) return this.providers.get("openai")!
+    // 本地模型
+    return this.providers.get("local")!
+  }
+
+  // 自动降级：API 不可用时切换到本地
+  async getWithFallback(preferredModel: string): Promise<LLMProvider> {
+    try {
+      const provider = this.get(preferredModel)
+      await provider.createMessage({
+        model: preferredModel,
+        max_tokens: 0,
+        messages: [{ role: "user", content: "ping" }],
+      })
+      return provider  // 首选可用
+    } catch {
+      console.warn(`${preferredModel} 不可用，降级到本地模型`)
+      return this.providers.get("local")!
+    }
+  }
+}
+```
+
+### 本地模型的局限
+
+| 维度 | 云端 (Claude/GPT) | 本地 (Ollama) |
+|------|------------------|---------------|
+| 工具调用 | 原生稳定 | 不稳定，可能生成畸形的 JSON |
+| Context Window | 200K tokens | 通常 4K-8K，少数 32K |
+| 推理质量 | 高 | 小模型明显弱 |
+| 延迟 | 取决于网络 | 取决于 GPU/CPU |
+| 成本 | 按 token 计费 | 免费（除了电费） |
+| 隐私 | 数据离开本地 | 数据完全本地 |
+
+**本地模型适合**：简单分类、格式转换、语法修正、轻量代码生成。
+
+**本地模型不适合**：多文件重构、安全审查、复杂推理、需要工具调用的场景。
+
+---
+
 ## 试试看
 
 **任务 1**：用上面的 `ApiClient` 发一条消息，打印 `response.content[0].text`。
@@ -544,6 +694,10 @@ await client.createMessage({
 });
 ```
 观察 system prompt 如何影响回答风格。
+
+**任务 4**：用 Ollama 在本地跑一个模型，实现 `OllamaClient`，发一条消息验证。
+
+**任务 5**：实现 `ProviderRouter`，注册 Anthropic 和 Ollama 两个 provider，测试自动降级。
 
 ---
 
@@ -573,6 +727,9 @@ await client.createMessage({
 - [ ] 能配置 TLS 自定义 CA 和 HTTP 代理穿透
 - [ ] 能实现指数退避重试和令牌桶速率限制
 - [ ] 理解 TLS 握手的开销（~1-RTT）和连接池的默认行为
+- [ ] 能用 Ollama 在本地运行模型，实现适配 Client
+- [ ] 能设计多供应商抽象（ProviderRouter），支持自动降级
+- [ ] 理解本地模型的四大局限和适用场景
 
 ---
 
