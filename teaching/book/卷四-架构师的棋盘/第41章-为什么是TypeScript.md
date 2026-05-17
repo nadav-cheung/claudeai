@@ -221,6 +221,75 @@ Node.js/Bun 的运行时也在快速进步。Bun 的启动速度比 Node.js 快�
 
 ---
 
+## TypeScript 的盲区：副作用不可见
+
+选了 TypeScript，就不得不接受它的一个根本性限制：**类型系统不追踪副作用（Effect）**。
+
+### 什么是 Effect
+
+一个函数如果除了返回值还改变了外部世界——写文件、发网络请求、修改全局状态——它就产生了副作用。在 Agent 框架中，几乎所有 Tool 都有副作用：
+
+```typescript
+// 这些函数的签名看不出副作用
+Tool<Input, Output>.call(input: Input): Promise<Output>
+// 它可能：读文件（副作用小）、删除文件（副作用大）、发网络请求（有副作用）
+
+// 相比之下，纯函数的签名诚实得多
+function add(a: number, b: number): number
+// 你 100% 确定它只做加法，不删文件
+```
+
+某些语言（Haskell 的 IO Monad、Rust 的 ownership）在类型系统中编码副作用。在 TypeScript 中，副作用是隐式的。
+
+### Agent 框架中的影响
+
+隐式副作用的代价在 Agent 框架中特别明显：
+
+```typescript
+// 这段代码看起来安全
+class AgentLoop {
+  async *run(input: string): AsyncGenerator<AgentEvent> {
+    const response = await this.client.createMessage({ /*...*/ })
+    // ↑ 副作用：网络请求，可能花费 $$
+
+    for (const block of response.content) {
+      if (block.type === "tool_use") {
+        const result = await this.executeTool(block)
+        // ↑ 副作用：可能修改文件、运行命令
+        yield { type: "tool_result", data: result }
+      }
+    }
+  }
+}
+```
+
+你无法从类型签名知道 `executeTool` 会不会删文件。你只能信任 Tool 的 `isReadOnly` 属性——这是一个**运行时约定**，不是编译时保证。
+
+### 弥补策略
+
+TypeScript 社区弥补 Effect 缺失的方式是**架构约定**：
+
+1. **副作用集中在 Tool 层**。AgentLoop 不直接做 I/O。代码审查时只需关注 Tool 实现。
+2. **`async` 作为副作用的信号**。虽然不完美，但 `async` 函数几乎一定有副作用（否则为什么异步？）
+3. **`readonly` 和 `Readonly<T>`** 防止意外的状态修改
+4. **Zod Schema 做运行时屏障**：Tool 的输入/输出经过 Zod 校验，防止被意外数据污染
+
+如果要更进一步，TypeScript 生态中出现了受到 Haskell 启发的 Effect 库（`effect-ts`），它将副作用编码为泛型参数：
+
+```typescript
+import { Effect } from "effect"
+
+// 用 Effect 类型标注副作用：需要文件系统和网络
+declare function readConfig(path: string): Effect.Effect<Config, Error, FileSystem | Network>
+
+// 纯函数——无副作用
+declare function parseConfig(raw: string): Config
+```
+
+但这种模式在 TypeScript 生态中远非主流。Claude Code 没有用它，你的 Agent 框架大概率也不会用它。重要的是意识到这个盲区的存在，并通过架构约定来管理它，而不是假装副作用不存在。
+
+---
+
 ## 试试看
 
 ### 练习一：搜索类型断言的使用

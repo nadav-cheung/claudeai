@@ -326,6 +326,192 @@ function migrateConfig(config: any, from: string, to: string): any {
 
 ---
 
+## H.4.5 生产韧性 — Graceful Shutdown、健康检查、熔断器
+
+CI/CD 保证代码能部署。但部署之后呢？Agent 在 K8s 上运行时，可能被随时杀死（Pod eviction）、被流量压垮、被 API 故障拖死。生产韧性需要三道防线。
+
+### Graceful Shutdown
+
+Kubernetes 发 SIGTERM → 你的 Agent 有 30 秒优雅关闭窗口：
+
+```typescript
+// → src/my-agent/shutdown.ts
+class GracefulShutdown {
+  private shuttingDown = false
+  private activeTasks = new Set<string>()
+
+  constructor(private agent: AgentLoop) {
+    // 监听 SIGTERM / SIGINT
+    process.on("SIGTERM", () => this.handleShutdown("SIGTERM"))
+    process.on("SIGINT", () => this.handleShutdown("SIGINT"))
+  }
+
+  private async handleShutdown(signal: string): Promise<void> {
+    if (this.shuttingDown) {
+      console.warn(`收到第二次 ${signal}，强制退出`)
+      process.exit(1)  // 第二次信号直接退出
+    }
+
+    this.shuttingDown = true
+    console.log(`收到 ${signal}，等待 ${this.activeTasks.size} 个活跃任务完成...`)
+
+    // 1. 停止接收新请求
+    server.close()
+
+    // 2. 等待当前 turn 完成（最多 25 秒）
+    const timeout = setTimeout(() => {
+      console.error("优雅关闭超时，强制退出")
+      process.exit(1)
+    }, 25_000)
+
+    // 3. 保存当前状态
+    await this.agent.saveSnapshot()
+    console.log("状态已保存")
+
+    clearTimeout(timeout)
+    process.exit(0)
+  }
+
+  // 每个工具调用前后更新活跃任务计数
+  trackTask(taskId: string): () => void {
+    this.activeTasks.add(taskId)
+    return () => this.activeTasks.delete(taskId)  // 返回清理函数
+  }
+}
+
+// 使用
+const shutdown = new GracefulShutdown(agent)
+const done = shutdown.trackTask("read-auth")
+// ... 执行工具 ...
+done()  // 标记完成
+```
+
+### 健康检查端点
+
+```typescript
+// → 健康检查：K8s liveness / readiness probe
+import express from "express"
+
+const app = express()
+
+// Liveness：进程活着
+app.get("/health", (_, res) => {
+  res.json({ status: "ok", uptime: process.uptime() })
+})
+
+// Readiness：能处理请求
+app.get("/ready", async (_, res) => {
+  const checks = await Promise.all([
+    checkApiKey().then(() => "api").catch(() => null),
+    checkMcpConnections().then(() => "mcp").catch(() => null),
+    checkModelAccess().then(() => "model").catch(() => null),
+  ])
+
+  const failed = checks.filter(c => c === null)
+  if (failed.length > 0) {
+    res.status(503).json({
+      status: "not_ready",
+      failed: checks.map((c, i) => c === null ? ["api","mcp","model"][i] : null).filter(Boolean),
+    })
+    return
+  }
+
+  res.json({ status: "ready" })
+})
+
+// 健康检查实现
+async function checkApiKey(): Promise<void> {
+  // 发一个 max_tokens=0 的空请求（等同缓存预热）
+  await client.createMessage({
+    model: "claude-haiku-4-5",
+    max_tokens: 0,
+    messages: [{ role: "user", content: "ping" }],
+  })
+}
+
+async function checkMcpConnections(): Promise<void> {
+  for (const [name, mcp] of mcpClients) {
+    await mcp.ping()  // 每个 MCP 连接发心跳
+  }
+}
+```
+
+### 熔断器 (Circuit Breaker)
+
+当 API 连续失败时，熔断器防止雪崩：
+
+```typescript
+// → src/my-agent/circuit-breaker.ts
+type CircuitState = "CLOSED" | "OPEN" | "HALF_OPEN"
+
+class CircuitBreaker {
+  private state: CircuitState = "CLOSED"
+  private failures = 0
+  private lastFailureTime = 0
+
+  constructor(
+    private threshold = 5,        // 连续 5 次失败 → 熔断
+    private resetTimeout = 30_000, // 30 秒后尝试半开
+  ) {}
+
+  async call<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.state === "OPEN") {
+      if (Date.now() - this.lastFailureTime < this.resetTimeout) {
+        throw new CircuitOpenError("熔断器已打开，拒绝请求")
+      }
+      this.state = "HALF_OPEN"  // 超时了，试试半开
+    }
+
+    try {
+      const result = await fn()
+      this.onSuccess()
+      return result
+    } catch (err) {
+      this.onFailure()
+      throw err
+    }
+  }
+
+  private onSuccess(): void {
+    this.failures = 0
+    this.state = "CLOSED"
+  }
+
+  private onFailure(): void {
+    this.failures++
+    this.lastFailureTime = Date.now()
+    if (this.failures >= this.threshold) {
+      this.state = "OPEN"
+      console.error(`熔断器打开：连续 ${this.failures} 次失败`)
+    }
+  }
+}
+
+class CircuitOpenError extends Error {
+  constructor(msg: string) { super(msg) }
+}
+
+// 集成到 ApiClient
+const breaker = new CircuitBreaker(5, 30_000)
+
+async function safeApiCall(params: MessageCreateParams): Promise<MessageResponse> {
+  return breaker.call(() => client.createMessage(params))
+}
+```
+
+熔断器三态转换：
+
+```mermaid
+stateDiagram-v2
+    CLOSED --> OPEN: 连续 N 次失败
+    OPEN --> HALF_OPEN: 等待 T 秒后
+    HALF_OPEN --> CLOSED: 探测请求成功
+    HALF_OPEN --> OPEN: 探测请求失败
+    CLOSED --> CLOSED: 成功后重置计数器
+```
+
+---
+
 ## H.5 版本发布 Checklist
 
 发布新版本前：
