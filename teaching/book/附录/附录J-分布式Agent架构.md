@@ -253,7 +253,7 @@ class PersistentAgentLoop {
 
 ## J.6 分布式下的可观测性
 
-附录G（可观测性）的单 Agent 指标在分布式下需要聚合：
+ch38（调试的艺术→结构化可观测性）建立的单 Agent 指标在分布式下需要聚合：
 
 ```
 Pod-1: turn.count avg=4.2, error.rate=3%
