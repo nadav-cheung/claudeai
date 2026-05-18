@@ -341,4 +341,13 @@ AI 读到这条错误，会在下一轮自动修正参数重新调用。这就�
 
 ---
 
+## 验证——你的 Zod schema 做对了吗？
+
+1. **编译检查**：`tsc --noEmit` 确认 schema 类型推断正确，`z.infer<typeof schema>` 输出的类型与 `call()` 期望的参数类型一致
+2. **合法输入测试**：用 `schema.safeParse(validInput)` 确认合法参数通过，返回 `{ success: true }`
+3. **非法输入测试**：用 `schema.safeParse(invalidInput)` 确认多余字段被拒绝（`strictObject`）、错误类型被拦截、缺少必填字段返回明确错误
+4. **AI 对话测试**：启动 Claude Code，故意让 AI 调用你的工具并传错参数——观察 AI 是否能看到 Zod 错误并自动修正
+
+---
+
 [上一章：创建你的第一个工具](./第31章-创建你的第一个工具.md) | [下一章：添加权限规则](./第33章-添加权限规则.md)

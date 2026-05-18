@@ -258,4 +258,18 @@ for (const tool of tools) {
 
 ---
 
+## 对比：如果用 Java
+
+Java 中定义工具接口会是 `interface Tool<Input, Output> { String prompt(); boolean checkPermissions(Input in); Output call(Input in); }`——泛型参数在编译时擦除，运行时无法反射出 `Input` 和 `Output` 的具体类型。Claude Code 用 Zod schema 弥补了类型擦除的缺口：`z.infer<typeof schema>` 在编译时提供精确类型，`schema.safeParse()` 在运行时验证数据。Java 要实现等价效果，需要 Jakarta Validation (`@NotNull`, `@Size`) 注解 + Jackson JSON Schema 生成——两套注解维护成本高。TypeScript 的"一份 Zod 定义 = 编译时类型 + 运行时验证 + JSON Schema 生成"是结构性优势，Java 生态尚无同等简洁的方案。
+
+---
+
+## 你能改什么
+
+**安全区域**：在 `src/tools/` 下创建新工具——`buildTool` 工厂提供 fail-closed 默认值，新工具不会影响已有工具；修改单个工具的 `prompt()` 描述——影响范围限于 AI 对该工具的理解。
+
+**危险区域**：修改 `src/Tool.ts` 的 `Tool` 泛型接口——所有工具都实现它，改动影响全局；修改 `buildTool` 的默认值（`isReadOnly: false`、`isConcurrencySafe: false`）——这些"默认不安全 = 更安全"的设计选择是安全网，改为宽松默认会导致所有新工具默认暴露风险。
+
+---
+
 [上一章：React在终端里奔跑](./第19章-React在终端里奔跑.md) | [下一章：工具执行引擎](./第21章-工具执行引擎.md)

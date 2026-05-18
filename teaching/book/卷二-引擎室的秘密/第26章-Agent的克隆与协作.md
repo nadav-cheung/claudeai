@@ -365,4 +365,10 @@ Agent 系统是 Claude Code 架构里最精巧的部分之一。核心思想很�
 
 ---
 
+## 对比：如果用 Java
+
+Java 的 `ThreadPoolExecutor` + `ForkJoinPool` 提供了与 Agent 协作模型类似的能力——`submit()` 提交子任务、`invokeAll()` 并行执行、`ForkJoinTask.fork()` 创建轻量级子任务。Claude Code 的 Subagent/Fork/Team 三层模型映射到 Java：(1) Subagent 类似 `CompletableFuture.supplyAsync()`——提交任务、等待结果、超时取消；(2) Fork 利用 prompt cache 共享类似 `ForkJoinTask` 的工作窃取（work-stealing）思想——复用已计算的工作；(3) Team 的邮箱系统（文件锁 + JSON 消息）在 Java 中可以直接用 `BlockingQueue` 替代——但 Claude Code 选择文件系统而非内存队列是为了跨进程协作。一个 Java 做不到的优化是 Fork 的缓存共享——`buildForkedMessages` 复用 assistant 前缀来命中 Prompt Cache，这利用了 Anthropic API 的字节级缓存前缀匹配，Java 线程池没有等价概念。
+
+---
+
 [上一章：外部世界的入口](./第25章-外部世界的入口.md) | [下一章：跨越会话的记忆](./第27章-跨越会话的记忆.md)

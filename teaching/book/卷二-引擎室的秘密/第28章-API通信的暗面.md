@@ -404,4 +404,18 @@ export API_TIMEOUT_MS=1200000  # 20 分钟
 
 ---
 
+## 对比：如果用 Java
+
+Java 生态中，resilience4j 和 Spring Retry 提供了与 `withRetry` 类似的能力——指数退避、重试决策、熔断器。但一个关键区别在于实现范式：Claude Code 的 `withRetry` 是 AsyncGenerator（`yield` 在等待时向上层汇报重试状态），而 Java 的 `RetryTemplate` 是基于回调的——重试过程中的状态汇报需要额外的监听器接口。AsyncGenerator 让"等待中的通信"变成了一个自然的 `for await` 循环，Java 的等价实现需要 `CompletableFuture` + 事件总线才能达到同样的透明度。在指数退避和抖动算法上两者一致——数学不因语言而改变。Java 的 resilience4j 额外提供了线程池隔离和信号量隔离，Claude Code 的持久重试用 30 秒心跳保持了类似的会话保活效果。
+
+---
+
+## 你能改什么
+
+**安全区域**：环境变量配置（`CLAUDE_CODE_MAX_RETRIES`、`API_TIMEOUT_MS`、`CLAUDE_CODE_UNATTENDED_RETRY`）——改动局限在重试行为，不影响业务逻辑；`getAssistantMessageFromError` 的错误消息文本——纯展示层改动。
+
+**危险区域**：`shouldRetry` 的重试决策逻辑——一个错误分类的修改可能导致两类问题：不该重试的反复重试（浪费 API 配额）或该重试的直接放弃（任务失败）；`getRetryDelay` 的指数退避参数——抖动比例改动可能导致"重试风暴"；OAuth PKCE 流程的任何环节——认证改动如果出错，所有订阅用户无法登录。
+
+---
+
 [上一章：跨越会话的记忆](./第27章-跨越会话的记忆.md) | [下一卷：搭建你的工坊](../卷三-造物主的工坊/第29章-搭建你的工坊.md)

@@ -365,4 +365,10 @@ Hook 系统是 Claude Code 最灵活的扩展点——不需要改源码，不�
 
 ---
 
+## 对比：如果用 Java
+
+Java 的拦截器模式（Interceptor Pattern）和 AOP（Aspect-Oriented Programming）提供了与 Hook 系统类似的"在方法执行前后插入逻辑"的能力。Spring AOP 的 `@Before`/`@After`/`@Around` 注解和 `ProceedingJoinPoint` 分别对应 PreToolUse/PostToolUse Hook 和 Hook 可以阻止/修改执行的能力。但一个关键区别：Java AOP 是在编译时（AspectJ 织入）或运行时（Spring CGLIB 代理）修改字节码，Hook 系统的拦截是在业务代码中**显式调用**——`runPreToolUseHooks()` 嵌在 `runToolUse` 函数里，不是魔法般的字节码织入。显式调用失去了 AOP 的透明性，但换来了完全的控制力和可调试性。Hook 的 Matcher 机制（按工具名/事件源/文件名过滤）在 Java 中没有直接等价物——Spring AOP 的 Pointcut 表达式接近但语法更复杂。
+
+---
+
 [上一章：斜杠命令与插件系统](./第23章-斜杠命令与插件系统.md) | [下一章：外部世界的入口](./第25章-外部世界的入口.md)

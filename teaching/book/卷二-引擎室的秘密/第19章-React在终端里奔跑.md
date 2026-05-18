@@ -298,4 +298,10 @@ function DailyQuote({ quote }: { quote: string }) {
 
 ---
 
+## 对比：如果用 Java
+
+Java 的终端 UI 开发用 Lanterna 或 JLine——它们基于字符缓冲区（ScreenBuffer）和 ANSI 转义序列直接操作终端。Lanterna 的 `TerminalScreen` 和 Ink 的"虚拟 DOM → 差异检测 → ANSI 输出"在底层原理相同（都是字符格子的差异渲染），但上层架构完全不同：Lanterna 是命令式 API（`screen.putString(x, y, text)`），Ink 是声明式（React 组件）。Java 要获得 React 的组件化终端体验，基本没有现成的成熟方案。Claude Code 为 Ink 写了 1500 行自定义代码——ScrollBox、双缓冲、Blit 优化——这些在 Java Lanterna 中有等价概念（ScrollingTerminal、DoubleBuffer、Region.copy），实现路径不同但解决的问题一致。
+
+---
+
 [上一章：主入口一切的起点](./第18章-主入口一切的起点.md) | [下一章：工具的DNA](./第20章-工具的DNA.md)
