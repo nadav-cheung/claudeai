@@ -1,4 +1,4 @@
-v# 附录 A：TypeScript 速成
+# 附录 A：TypeScript 速成
 
 > 浓缩 TypeScript 核心知识：基础类型、接口、泛型、联合/交叉类型、async/await，以及 Branded Types、Discriminated Unions、TypedEventEmitter、DeepPartial 等高级模式。配合本书源码阅读使用。
 
