@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true
+  },
+  "include": ["ch01/**/*.ts", "ch02/**/*.ts", "ch03/**/*.ts", "ch04/**/*.ts", "ch05/**/*.ts", "ch06/**/*.ts", "ch07/**/*.ts", "ch08/**/*.ts", "ch09/**/*.ts", "ch10/**/*.ts", "ch11/**/*.ts", "ch12/**/*.ts", "ch13/**/*.ts", "ch14/**/*.ts", "ch15/**/*.ts", "ch16/**/*.ts", "ch17/**/*.ts"]
+}
