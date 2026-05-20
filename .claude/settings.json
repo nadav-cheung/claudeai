@@ -1,0 +1,5 @@
+{
+  "env": {
+    "AGENT_BROWSER_PROFILE": "Default"
+  }
+}
