@@ -149,7 +149,7 @@ React 的声明式模型在这种场景下特别好用。你不需要手动追�
 
 ### 组件的丰富程度
 
-`src/ink/components/` 目录下有 19 个基础组件：`Box`、`Text`、`Button`、`Link`、`Newline`、`Spacer`、`ScrollBox`、`RawAnsi`、`AlternateScreen`……而在它们之上，`src/components/` 目录里有 111 个应用级组件：`MessageResponse`、`Markdown`、`StatusLine`、`FullscreenLayout`、各种工具执行的可视化组件……
+`src/ink/components/` 目录下有 18 个基础组件：`Box`、`Text`、`Button`、`Link`、`Newline`、`Spacer`、`ScrollBox`、`RawAnsi`、`AlternateScreen`……而在它们之上，`src/components/` 目录里有 111 个应用级组件：`MessageResponse`、`Markdown`、`StatusLine`、`FullscreenLayout`、各种工具执行的可视化组件……
 
 ---
 
