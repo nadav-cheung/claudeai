@@ -201,7 +201,7 @@ export class McpServer {
   }
 
   private send(message: JsonRpcMessage): void {
-    process.stdout.write(JSON.stringify(message) + "\\n");
+    process.stdout.write(JSON.stringify(message) + "\n");
   }
 }
 ```
@@ -271,7 +271,7 @@ export class McpClient {
   private sendRequest(method: string, params: unknown): Promise<unknown> {
     const id = ++this.requestId;
     const message = { jsonrpc: "2.0", id, method, params };
-    this.process.stdin!.write(JSON.stringify(message) + "\\n");
+    this.process.stdin!.write(JSON.stringify(message) + "\n");
 
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
@@ -287,7 +287,7 @@ export class McpClient {
 
   private sendNotification(method: string, params?: unknown): void {
     const message = { jsonrpc: "2.0", method, params };
-    this.process.stdin!.write(JSON.stringify(message) + "\\n");
+    this.process.stdin!.write(JSON.stringify(message) + "\n");
   }
 
   close(): void {
@@ -323,7 +323,7 @@ export async function executeMcpTool(
   return {
     type: "tool_result",
     tool_use_id: "",  // 调用者填充
-    content: result.content.map(c => c.text).join("\\n"),
+    content: result.content.map(c => c.text).join("\n"),
     is_error: result.isError,
   };
 }
