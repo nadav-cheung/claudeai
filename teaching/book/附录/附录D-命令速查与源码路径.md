@@ -164,17 +164,17 @@
 | 功能 | 源码路径 |
 |------|----------|
 | 权限模式与规则引擎 | `src/utils/permissions/permissions.ts` |
-| Bash 命令安全分析 | `src/utils/permissions/bashPermissions.ts` |
-| 只读命令白名单 | `src/utils/permissions/readOnlyValidation.ts` |
+| Bash 命令安全分析 | `src/utils/permissions/bashClassifier.ts` |
+| 只读命令白名单 | `src/utils/shell/readOnlyCommandValidation.ts` |
 | 拒绝追踪器 | `src/utils/permissions/denialTracking.ts` |
 
 ### 上下文与会话
 
 | 功能 | 源码路径 |
 |------|----------|
-| 消息状态管理 | `src/state/messages.ts` |
-| 上下文压缩策略 | `src/services/compact/strategies.ts` |
-| 会话创建与恢复 | `src/state/sessions.ts` |
+| 消息状态管理 | `src/state/AppStateStore.ts` |
+| 上下文压缩策略 | `src/services/compact/compact.ts` |
+| 会话创建与恢复 | `src/assistant/sessionHistory.ts` |
 
 ### API 通信
 
@@ -188,13 +188,13 @@
 
 | 功能 | 源码路径 |
 |------|----------|
-| MCP 连接管理 | `src/services/mcp/connection.ts` |
+| MCP 连接管理 | `src/services/mcp/MCPConnectionManager.tsx` |
 
 ### Agent 系统
 
 | 功能 | 源码路径 |
 |------|----------|
-| Agent 任务类型定义 | `src/services/agents/types.ts` |
+| Agent 任务类型定义 | `src/tools/AgentTool/AgentTool.tsx` |
 
 ### Skills 与 Plugin
 
@@ -209,8 +209,8 @@
 
 | 功能 | 源码路径 |
 |------|----------|
-| Ink 入口 | `src/ink.tsx` |
-| 消息组件 | `src/Message.tsx` |
+| Ink 入口 | `src/ink.ts` |
+| 消息组件 | `src/components/Message.tsx` |
 | 布局引擎（Yoga） | Ink 内部依赖 |
 
 ---
