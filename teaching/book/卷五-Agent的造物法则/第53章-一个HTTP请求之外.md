@@ -721,7 +721,7 @@ await client.createMessage({
 - [ ] 理解了 Messages API 是纯 HTTPS + JSON 协议
 - [ ] 能从头实现一个最小 API Client（不依赖 SDK）
 - [ ] 理解了 `anthropic-version` header 的版本控制机制
-- [ ] 能区分六种错误类型并实现重试判断
+- [ ] 能区分七种错误类型并实现重试判断
 - [ ] 知道 `content` 是数组结构（不是纯字符串）
 - [ ] 理解 HTTP/2 多路复用对并发 Agent 请求的意义
 - [ ] 能配置 TLS 自定义 CA 和 HTTP 代理穿透
