@@ -19,7 +19,7 @@
 | `claude --mcp-config <path>` | 指定 MCP 配置文件 |
 | `claude --list-mcp-servers` | 列出已连接的 MCP 服务器 |
 | `claude --dangerously-skip-permissions` | 跳过权限检查（危险） |
-| `claude --permission-mode <mode>` | 设置权限模式：`prompt` / `bypass` / `fail` / `approve` |
+| `claude --permission-mode <mode>` | 设置权限模式：`default` / `plan` / `acceptEdits` / `bypassPermissions` |
 | `claude --export-permissions <path>` | 导出权限配置 |
 | `claude --log-file <path>` | 日志输出到文件 |
 | `claude --profile` | 启用性能分析 |
@@ -136,16 +136,16 @@
 |----------|------|-----------|
 | `State`（type） | `query.ts` | 循环可变状态的类型定义 |
 | 三阶段恢复 | `query.ts` | Collapse drain → Reactive Compact → Max Token 升级 |
-| `handleStopHooks()` | `query.ts` | 会话结束时的 Stop hook 处理 |
+| `handleStopHooks()` | `query/stopHooks.ts` | 会话结束时的 Stop hook 处理 |
 
 ### 渲染系统（第 19 章）
 
 | 函数 | 文件 | 一句话描述 |
 |------|------|-----------|
-| `render()` | `ink.tsx` | React 树挂载到终端 |
-| `onRender()` | `ink.tsx` | 帧渲染管线，计算布局并输出 |
+| `render()` | `ink/ink.tsx` | React 树挂载到终端 |
+| `onRender()` | `ink/ink.tsx` | 帧渲染管线，计算布局并输出 |
 | `handleMessageFromStream()` | `messages.ts` | 流式事件分发到状态更新 |
-| `MessageImpl()` | `Message.tsx` | 消息类型分发渲染组件 |
+| `MessageImpl()` | `components/Message.tsx` | 消息类型分发渲染组件 |
 
 ---
 
