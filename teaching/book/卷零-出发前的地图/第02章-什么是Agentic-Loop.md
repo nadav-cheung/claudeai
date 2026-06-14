@@ -146,9 +146,9 @@ graph LR
 | # | 组件 | 文件 | 做什么 |
 |---|------|------|--------|
 | ① | 入口 | `cli.tsx` → `main.tsx` | 解析命令行参数，初始化所有模块 |
-| ② | 消息 | `processUserInput/` | 捕获用户输入，创建消息对象 |
+| ② | 消息 | `utils/processUserInput/` | 捕获用户输入，创建消息对象 |
 | ③ | 查询引擎 | `query.ts` + `QueryEngine.ts` | Agentic Loop 的核心 |
-| ④ | 权限 | `permissions/` | 检查工具调用是否被允许 |
+| ④ | 权限 | `utils/permissions/` | 检查工具调用是否被允许 |
 | ⑤ | 工具执行 | `StreamingToolExecutor.ts` | 执行工具（并发安全、Hook 触发） |
 | ⑥ | 渲染 | `ink/` + `components/` | 用 React（Ink）渲染终端输出 |
 | ⑦ | 状态与持久化 | `AppStateStore.ts` + `sessionStorage.ts` | 管理会话状态，保存对话 |
@@ -210,12 +210,12 @@ interface Tool<Input, Output> {
   name: string                          // 工具名，如 "Bash"
   description: string                   // 描述（模型用来决定何时使用）
   inputSchema: Input                    // Zod schema（定义参数类型）
-  isReadOnly(input): boolean            // 是否只读（影响并发策略）
+  isConcurrencySafe(input): boolean     // 是否可并发执行（只读工具为 true）
   call(input): Promise<Output>          // 执行工具
 }
 ```
 
-`isReadOnly` 是一个巧妙的设计——只读工具（如 `Read`、`Grep`）可以并行执行，写操作（如 `Write`、`Bash`）必须串行。
+`isConcurrencySafe` 是并发的关键开关——只读工具（如 `Read`、`Grep`、`Glob`）把它设为 `true`，可以并行执行；有副作用的工具（如 `Write`、`Bash`）为 `false`，必须串行。
 
 ---
 
