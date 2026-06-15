@@ -40,7 +40,7 @@ Ink 就是那个"翻译层"。它做了一件精妙的事：替换了 React 的�
 
 ## 打开源码
 
-打开 `src/ink/` 目录。你会看到五十多个文件，但核心的渲染管线只涉及几个关键文件：
+打开 `src/ink/` 目录。你会看到近五十个文件，但核心的渲染管线只涉及几个关键文件：
 
 ```
 src/ink.ts                  -- 入口门面（85行），封装 Ink 的 render 和 createRoot
@@ -48,13 +48,16 @@ src/ink/
   reconciler.ts             -- Fiber 协调器适配（512行）
   root.ts                   -- 创建渲染根（184行）
   renderer.ts               -- DOM 节点 -> 屏幕缓冲区（178行）
-  render-node-to-output.ts  -- 逐节点绘制（~1800行，最重的文件）
-  ink.tsx                   -- Ink 主类，调度渲染循环（~900行）
+  render-node-to-output.ts  -- 逐节点绘制（~1460行）
+  ink.tsx                   -- Ink 主类，调度渲染循环（~1720行）
   frame.ts                  -- 帧数据结构，双缓冲定义
   output.ts                 -- 输出缓冲区管理
   screen.ts                 -- 屏幕缓冲区（每个字符一格的二维数组）
   layout/
     engine.ts               -- 布局引擎入口，委托给 Yoga
+    yoga.ts                 -- Yoga 绑定（布局计算后端）
+    node.ts                 -- 布局节点封装
+    geometry.ts             -- 几何计算
   components/
     Box.tsx                 -- 终端里的矩形区域
     Text.tsx                -- 终端里的文字
