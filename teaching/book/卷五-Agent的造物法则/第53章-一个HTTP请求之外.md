@@ -142,8 +142,8 @@ export interface ApiClientConfig {
 }
 
 export class ApiClient {
-  private baseUrl: string;
-  private headers: Record<string, string>;
+  readonly baseUrl: string;
+  readonly headers: Record<string, string>;
 
   constructor(config: ApiClientConfig) {
     this.baseUrl = config.baseUrl ?? "https://api.anthropic.com/v1";
