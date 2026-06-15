@@ -2,7 +2,7 @@
 
 > 源码验证日期：2026-05-15，基于 commit `0d81bb6`
 
-你在第 47 章看到 `queryLoop` 如何用一个大 AsyncGenerator 驱动整个 agentic loop。但 Claude Code 不只有一个 loop。当主 agent 需要委托工作时，它会启动子 agent——探索代码、规划方案、在后台执行长时间任务。子 agent 有自己的 `agentId`、自己的 `readFileState`、自己的 `abortController`、自己的消息流。
+你在第 47 章看到 `queryLoop` 如何用一个大 AsyncGenerator 驱动整个 Agentic Loop。但 Claude Code 不只有一个 loop。当主 agent 需要委托工作时，它会启动子 agent——探索代码、规划方案、在后台执行长时间任务。子 agent 有自己的 `agentId`、自己的 `readFileState`、自己的 `abortController`、自己的消息流。
 
 这不是唯一的做法。你可以让子 agent 直接访问父 agent 的所有状态——共享消息队列、共享文件缓存、共享权限上下文。那样更简单，也更危险。
 

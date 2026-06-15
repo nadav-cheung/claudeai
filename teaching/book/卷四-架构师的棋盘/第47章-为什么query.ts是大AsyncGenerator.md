@@ -4,7 +4,7 @@
 
 你在第 46 章看到上下文压缩如何用三层防线对抗有限窗口。但有一个更基本的问题我们从未触碰：**承载这一切的核心循环，为什么是一个 ~1500 行的 `async function*`？**
 
-打开 `src/query.ts`，你会看到一个叫 `queryLoop` 的函数。它包含一个 `while(true)` 循环，在循环里处理 API 调用、工具执行、上下文管理、错误恢复——几乎整个 agentic loop 都在它的函数体里。`query()` 函数只有一行核心逻辑：`yield* queryLoop(...)`，把控制权委托给这个巨型循环。
+打开 `src/query.ts`，你会看到一个叫 `queryLoop` 的函数。它包含一个 `while(true)` 循环，在循环里处理 API 调用、工具执行、上下文管理、错误恢复——几乎整个 Agentic Loop 都在它的函数体里。`query()` 函数只有一行核心逻辑：`yield* queryLoop(...)`，把控制权委托给这个巨型循环。
 
 这不是一个偶然。这是一个深思熟虑的设计选择。函数体巨大，但控制流出奇地清晰。AsyncGenerator 的 `yield` 让每一步都可以暂停和恢复，而 `while(true)` 让循环永不停歇直到任务完成。
 
@@ -216,7 +216,7 @@ Promise 链最致命的问题是：**无法 yield 中间结果**。AI 的回答�
 | **AutoGPT** | while 循环 + 函数调用 | 无 yield | 类似但无暂停点 |
 | **CrewAI** | Actor 模型 | 消息传递 | 多代理协作 |
 
-LangChain 的状态机模型更灵活——你可以定义任意的状态转换图，支持分支和并行。但 Claude Code 的 agentic loop 本质上是线性的：API -> 工具 -> API -> 工具 -> 结束。线性流程用状态机表达是杀鸡用牛刀。
+LangChain 的状态机模型更灵活——你可以定义任意的状态转换图，支持分支和并行。但 Claude Code 的 Agentic Loop 本质上是线性的：API -> 工具 -> API -> 工具 -> 结束。线性流程用状态机表达是杀鸡用牛刀。
 
 CrewAI 的 Actor 模型适合多代理场景——多个 agent 同时运行、互相通信。但 Claude Code 的主循环是单 agent 的，Actor 模型的通信开销在这里没有收益。
 

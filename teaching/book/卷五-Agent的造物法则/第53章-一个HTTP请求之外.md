@@ -244,7 +244,7 @@ HTTP/2:
   (一个连接同时承载多个请求)
 ```
 
-对 Agent 框架这意味着什么？当你的 Agent Loop 同时 fork 出 3 个子 Agent，它们都通过同一个 ApiClient 发送请求。HTTP/2 的多路复用让这 3 个请求共享一个 TCP 连接，不会排队等待。
+对 Agent 框架这意味着什么？当你的 Agentic Loop 同时 fork 出 3 个子 Agent，它们都通过同一个 ApiClient 发送请求。HTTP/2 的多路复用让这 3 个请求共享一个 TCP 连接，不会排队等待。
 
 Node.js 的 `fetch()` 原生支持 HTTP/2——你不需要做任何事。服务端在 TLS 握手阶段通过 ALPN（Application-Layer Protocol Negotiation）协商协议，如果服务端支持 HTTP/2，客户端自动升级。
 
