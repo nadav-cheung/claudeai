@@ -115,7 +115,7 @@
 | 系统提示 | System prompt | 发送给 LLM 的最高优先级指令文本，定义角色、约束和可用工具，位于对话上下文最前端 |
 | 状态不可变更新 | State immutable update | 在 `queryLoop` 中通过展开运算符 `{...state, field: newValue}` 更新状态，确保每个循环迭代的状态快照独立 |
 | Speculative 执行 | Speculative execution | 推测性执行：在等待用户确认的同时预先执行工具，若用户批准则直接使用结果，否则丢弃 |
-| Skill | Skill | Claude Code 的技能系统，以 `/` 前缀调用的命名命令，可自定义注册 |
+| Skill | Skill | 封装了提示词模板、工具集、执行策略与验证规则的可复用能力单元，可通过 `/` 前缀或触发模式调用 |
 
 ## T
 
@@ -138,7 +138,7 @@
 | 中文术语 | 英文术语 | 说明 |
 |---------|---------|------|
 | Zod Schema | Zod | TypeScript 生态最主流的运行时验证库，弥补 TS 类型只在编译时生效的缺口，`z.infer` 可从 Schema 自动生成类型 |
-| 子代理 | Subagent / Sub-agent | 由主 Agent 派生的子任务执行单元，通过 Mailbox 机制与主 Agent 通信 |
+| 子 Agent | Subagent | 由主 Agent 派生的子任务执行单元，通过 Mailbox 机制与主 Agent 通信 |
 | Agentic Loop | Agentic Loop | Agent 的核心执行循环：接收输入 → 调用模型 → 执行工具 → 再调用模型，直到任务完成 |
 
 ---

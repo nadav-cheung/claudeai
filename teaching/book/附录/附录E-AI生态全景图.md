@@ -30,8 +30,8 @@ graph TD
     end
 
     subgraph 编排层["🎭 编排层：让 AI 自主行动"]
-        AGENT["Agent 智能体<br/>自主决策 + 行动"]
-        SUB["SubAgent 子智能体<br/>分工协作"]
+        AGENT["Agent<br/>自主决策 + 行动"]
+        SUB["SubAgent 子 Agent<br/>分工协作"]
         WF["Workflow 工作流<br/>结构化流程"]
         SKILL["Skill 技能<br/>可复用能力"]
     end
@@ -539,7 +539,7 @@ thinking: { type: 'adaptive' }
 
 ## 第四层：编排层 — 让 AI 自主行动
 
-### Agent（智能体）
+### Agent
 
 **一句话**：LLM + 工具 + 循环 = Agent。能自己思考、自己决定用什么工具、自己检查结果的 AI。
 
@@ -567,7 +567,7 @@ graph TD
 
 Claude Code 就是一个 Agent。它接收你的请求，自己决定读哪些文件、执行什么命令、修改哪些代码，循环往复直到完成任务。
 
-### SubAgent（子智能体）
+### SubAgent（子 Agent）
 
 **一句话**：一个 Agent 可以派生出多个子 Agent，分工协作完成复杂任务。
 
@@ -663,7 +663,7 @@ LangChain 是一个"胶水框架"，它不提供 LLM 本身，而是提供连接
 graph TD
     subgraph LangChain
         CHAIN["Chain<br/>链式调用"]
-        AGENT_LC["Agent<br/>智能体"]
+        AGENT_LC["Agent"]
         MEM_LC["Memory<br/>记忆"]
         RET["Retriever<br/>检索器"]
         TOOL_LC["Tool<br/>工具"]
@@ -1090,7 +1090,7 @@ Claude Code 支持多模型切换：主模型处理复杂任务，小模型处�
 | **Search** | 实时搜索 | 增强层 | 获取最新信息 |
 | **Thinking** | 扩展思考 | 增强层 | 提升推理质量 |
 | **Agent** | LLM + 工具 + 循环 | 编排层 | 自主完成复杂任务 |
-| **SubAgent** | 子智能体 | 编排层 | 分工协作 |
+| **SubAgent** | 子 Agent | 编排层 | 分工协作 |
 | **Workflow** | 结构化流程 | 编排层 | 可控的多步骤执行 |
 | **Skill** | 可复用能力 | 编排层 | 封装和复用 Agent 能力 |
 | **LangChain** | LLM 应用框架 | 框架层 | 简化 LLM 应用开发 |

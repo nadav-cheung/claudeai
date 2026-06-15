@@ -72,9 +72,9 @@ const HOOK_EVENTS = [
   'StopFailure',             // 代理停止（失败）
   'Setup',                   // 初始设置
 
-  // 子代理（2 个）
-  'SubagentStart',           // 子代理启动
-  'SubagentStop',            // 子代理停止
+  // 子 Agent（2 个）
+  'SubagentStart',           // 子 Agent启动
+  'SubagentStop',            // 子 Agent停止
 
   // 上下文管理（2 个）
   'PreCompact',              // 上下文压缩前
@@ -103,7 +103,7 @@ const HOOK_EVENTS = [
 ]
 ```
 
-这些事件被分成八类：工具执行、会话生命周期、子代理、上下文管理、用户交互、任务系统、团队、环境变化。几乎覆盖了 Claude Code 运行时可能发生的所有重要事件。
+这些事件被分成八类：工具执行、会话生命周期、子 Agent、上下文管理、用户交互、任务系统、团队、环境变化。几乎覆盖了 Claude Code 运行时可能发生的所有重要事件。
 
 ### 四种执行类型
 
@@ -140,7 +140,7 @@ const HOOK_EVENTS = [
   timeout?: number,
 }
 
-// 类型 4：agent（子代理验证）
+// 类型 4：agent（子 Agent验证）
 {
   type: 'agent',
   prompt: 'Verify this change is safe',
@@ -149,7 +149,7 @@ const HOOK_EVENTS = [
 }
 ```
 
-**command** 最常用——直接执行一个 Shell 命令，命令从 stdin 接收 JSON 格式的 Hook 输入，向 stdout 写 JSON 格式的结果。**prompt** 把 Hook 输入交给 LLM 评估——让 AI 自己判断该怎么做。**http** 发一个 HTTP POST 请求——适合跟外部系统集成。**agent** 启动一个子代理来验证——最强大但也最昂贵。
+**command** 最常用——直接执行一个 Shell 命令，命令从 stdin 接收 JSON 格式的 Hook 输入，向 stdout 写 JSON 格式的结果。**prompt** 把 Hook 输入交给 LLM 评估——让 AI 自己判断该怎么做。**http** 发一个 HTTP POST 请求——适合跟外部系统集成。**agent** 启动一个子 Agent来验证——最强大但也最昂贵。
 
 还有一种内部类型 `callback`（定义在 `src/types/hooks.ts`），用于编程式 Hook——不持久化到设置文件，只在运行时生效。
 
@@ -285,7 +285,7 @@ graph TD
     TYPE -->|"command"| SHELL["执行 Shell 命令<br/>stdin=Hook JSON"]
     TYPE -->|"prompt"| LLM["调用 LLM<br/>$ARGUMENTS 替换"]
     TYPE -->|"http"| HTTP["POST 到 URL<br/>body=Hook JSON"]
-    TYPE -->|"agent"| AGENT["生成子代理<br/>验证结果"]
+    TYPE -->|"agent"| AGENT["生成子 Agent<br/>验证结果"]
     SHELL --> PARSE["解析 stdout JSON"]
     LLM --> PARSE
     HTTP --> PARSE
@@ -353,8 +353,8 @@ console.log('[DEBUG] Hook match:', eventName, 'query:', matchQuery, 'matched:', 
 
 ## 检查点
 
-1. **25 个 Hook 事件**：工具执行（5）、会话生命周期（5）、子代理（2）、上下文管理（2）、用户交互（4）、任务系统（2）、团队（1）、环境变化（4）
-2. **四种执行类型**：command（Shell）、prompt（LLM）、http（Webhook）、agent（子代理验证）
+1. **25 个 Hook 事件**：工具执行（5）、会话生命周期（5）、子 Agent（2）、上下文管理（2）、用户交互（4）、任务系统（2）、团队（1）、环境变化（4）
+2. **四种执行类型**：command（Shell）、prompt（LLM）、http（Webhook）、agent（子 Agent验证）
 3. **Matcher 机制**：按工具名、命令模式、事件源、文件名过滤
 4. **PreToolUse Hook**：可以阻止执行、允许执行、修改工具输入、注入上下文
 5. **PostToolUse Hook**：可以替换 MCP 输出、注入上下文
