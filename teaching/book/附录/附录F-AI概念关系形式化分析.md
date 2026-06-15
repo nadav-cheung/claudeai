@@ -31,7 +31,7 @@ $$\mathcal{M}: \mathcal{T}^* \rightarrow \Delta(\mathcal{T})$$
 
 关键约束：$\mathcal{M}$ 受限于上下文窗口 $W_{\text{max}}$（以 token 计），即有效输入 $|x| \leq W_{\text{max}}$。
 
-**实例**：Claude 4.7 Sonnet ($W_{\text{max}} = 200\text{K}$)，GPT-4.1 ($W_{\text{max}} = 1\text{M}$)，Gemini 2.5 Pro ($W_{\text{max}} = 1\text{M}$)。
+**实例**：Claude 4.6 Sonnet ($W_{\text{max}} = 200\text{K}$)，GPT-4.1 ($W_{\text{max}} = 1\text{M}$)，Gemini 2.5 Pro ($W_{\text{max}} = 1\text{M}$)。
 
 **定义 2.2（Prompt）**：Prompt $p$ 是从自然语言意图到 token 序列的映射函数：
 
@@ -927,8 +927,8 @@ $$\text{Skill.Load}() \mapsto (\text{Prompt}_T, \mathcal{T}_T, \text{Strategy}_T
 
 | 工具 | 模型层 | 协议层 | 编排层 | 产品特性 |
 |------|--------|--------|--------|---------|
-| **Claude Code** | Claude (Opus/Sonnet/Haiku) | Messages API + MCP | Agent Loop + Skills + Hooks | CLI 原生, 终端深度集成 |
-| **CodeX** | GPT 系列 | OpenAI API | Agent Loop + Sandbox | CLI, 沙箱执行 |
+| **Claude Code** | Claude (Opus/Sonnet/Haiku) | Messages API + MCP | Agentic Loop + Skills + Hooks | CLI 原生, 终端深度集成 |
+| **CodeX** | GPT 系列 | OpenAI API | Agentic Loop + Sandbox | CLI, 沙箱执行 |
 | **Cursor** | Multi-Model | 多 API + MCP | Agent + Tab 补全 + 内联编辑 | VS Code IDE 集成 |
 | **Trae** | Claude + DeepSeek | Anthropic + DeepSeek API | Agent + Builder Mode | 字节跳动 IDE |
 | **Manus** | Multi-Model | 多 API | General Agent + Tool Use | 通用任务 Agent |
