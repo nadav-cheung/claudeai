@@ -40,7 +40,7 @@ Hook 系统的代码分布在以下位置：
 
 | 文件 | 作用 |
 |------|------|
-| `src/entrypoints/sdk/coreTypes.ts` | `HOOK_EVENTS` 常量——25 个事件定义 |
+| `src/entrypoints/sdk/coreTypes.ts` | `HOOK_EVENTS` 常量——27 个事件定义 |
 | `src/schemas/hooks.ts` | Hook Zod schema——四种执行类型 |
 | `src/utils/hooks.ts` | Hook 执行引擎——匹配、运行、结果处理 |
 | `src/types/hooks.ts` | Hook 类型定义 |
@@ -51,9 +51,9 @@ Hook 系统的代码分布在以下位置：
 
 ## 它怎么工作
 
-### 25 个 Hook 事件
+### 27 个 Hook 事件
 
-Claude Code 定义了 25 个 Hook 事件，覆盖了系统的方方面面：
+Claude Code 定义了 27 个 Hook 事件，覆盖了系统的方方面面：
 
 ```typescript
 // → src/entrypoints/sdk/coreTypes.ts:25-53
@@ -93,7 +93,7 @@ const HOOK_EVENTS = [
   // 团队（1 个）
   'TeammateIdle',            // 队友空闲
 
-  // 环境变化（4 个）
+  // 环境变化（6 个）
   'ConfigChange',            // 配置变更
   'WorktreeCreate',          // 工作树创建
   'WorktreeRemove',          // 工作树移除
@@ -103,7 +103,7 @@ const HOOK_EVENTS = [
 ]
 ```
 
-这些事件被分成七类：工具执行、会话生命周期、子代理、上下文管理、用户交互、任务系统、环境变化。几乎覆盖了 Claude Code 运行时可能发生的所有重要事件。
+这些事件被分成八类：工具执行、会话生命周期、子代理、上下文管理、用户交互、任务系统、团队、环境变化。几乎覆盖了 Claude Code 运行时可能发生的所有重要事件。
 
 ### 四种执行类型
 
@@ -117,7 +117,7 @@ const HOOK_EVENTS = [
   type: 'command',
   command: 'my-script.sh',       // 要执行的命令
   shell?: 'bash' | 'powershell', // Shell 类型
-  timeout?: number,               // 超时（毫秒）
+  timeout?: number,               // 超时（秒）
   once?: boolean,                 // 只运行一次
   async?: boolean,                // 异步执行（不阻塞）
   if?: string,                    // 条件过滤
@@ -307,7 +307,7 @@ graph TD
 |---------|---------|
 | Hook 没有触发 | 检查事件名拼写和 matcher 格式 |
 | Hook 的 command 执行失败 | 确保脚本从 stdin 读 JSON、向 stdout 写 JSON、退出码为 0 |
-| PreToolUse Hook 没有阻止工具 | 检查返回的 JSON 是否包含 `decision: "deny"` |
+| PreToolUse Hook 没有阻止工具 | 检查返回的 JSON 是否包含 `permissionDecision: "deny"` |
 | async Hook 阻塞了主流程 | 确认 `async: true` 已设置 |
 | matcher 没有匹配到目标 | 用 `Bash(git *)` 格式而非 `git *` |
 
@@ -326,7 +326,7 @@ graph TD
       "matcher": "Bash",
       "hooks": [{
         "type": "command",
-        "command": "echo '{\"decision\": \"allow\"}' && echo '[HOOK] Bash called:' $CLAUDE_TOOL_INPUT >&2"
+        "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\"}}' && echo '[HOOK] Bash called:' $CLAUDE_TOOL_INPUT >&2"
       }]
     }]
   }
