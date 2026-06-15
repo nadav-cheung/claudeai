@@ -246,7 +246,7 @@ HTTP/2:
 
 对 Agent 框架这意味着什么？当你的 Agentic Loop 同时 fork 出 3 个子 Agent，它们都通过同一个 ApiClient 发送请求。HTTP/2 的多路复用让这 3 个请求共享一个 TCP 连接，不会排队等待。
 
-Node.js 的 `fetch()` 原生支持 HTTP/2——你不需要做任何事。服务端在 TLS 握手阶段通过 ALPN（Application-Layer Protocol Negotiation）协商协议，如果服务端支持 HTTP/2，客户端自动升级。
+注意：Node.js 内置的 `fetch()`（基于 undici）**默认走 HTTP/1.1，并不会自动启用 HTTP/2**。服务端（Anthropic API）确实支持 HTTP/2，且 TLS 握手阶段会通过 ALPN（Application-Layer Protocol Negotiation）协商协议；但客户端要真正用上 HTTP/2，需显式配置 undici 的 `Agent({ allowH2: true })` 并传给 fetch，否则多路复用的好处在客户端这一侧不会自动生效。
 
 ### 6.2 TLS 1.3 握手
 
