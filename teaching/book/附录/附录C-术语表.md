@@ -9,6 +9,7 @@
 | 中文术语 | 英文术语 | 说明 |
 |---------|---------|------|
 | ANSI 转义码 | ANSI escape codes | 终端控制字符序列标准，用于控制光标位置、颜色、清屏等，Claude Code 通过它们实现终端 UI 的精确绘制 |
+| Agentic Loop | Agentic Loop | Agent 的核心执行循环：接收输入 → 调用模型 → 执行工具 → 再调用模型，直到任务完成（卷五构建框架时也作实现层类名 `AgentLoop`） |
 
 ## B
 
@@ -139,7 +140,6 @@
 |---------|---------|------|
 | Zod Schema | Zod | TypeScript 生态最主流的运行时验证库，弥补 TS 类型只在编译时生效的缺口，`z.infer` 可从 Schema 自动生成类型 |
 | 子 Agent | Subagent | 由主 Agent 派生的子任务执行单元，通过 Mailbox 机制与主 Agent 通信 |
-| Agentic Loop | Agentic Loop | Agent 的核心执行循环：接收输入 → 调用模型 → 执行工具 → 再调用模型，直到任务完成 |
 
 ---
 
