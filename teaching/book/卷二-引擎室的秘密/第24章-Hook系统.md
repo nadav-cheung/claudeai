@@ -268,13 +268,13 @@ function getMatchingHooks(eventName, matchQuery, hooks) {
       return filterByFileName(matchQuery, hooks)
 
     default:
-      // 大多数事件没有 matcher——运行所有 Hook
+      // 仅 TeammateIdle/TaskCreated/TaskCompleted 不设 matcher——运行所有 Hook
       return hooks
   }
 }
 ```
 
-大多数事件没有精细的 matcher，直接运行所有注册的 Hook。只有工具相关的事件、会话启动、通知和文件变更事件有自定义匹配逻辑。
+绝大多数事件都有自定义 matcher——按各自的事件字段过滤（如 `SessionEnd` 按 reason、`SubagentStart`/`SubagentStop` 按 agent_type、`ConfigChange` 按 source、`InstructionsLoaded` 按 load_reason）。只有 `TeammateIdle`、`TaskCreated`、`TaskCompleted` 三类不设 matcher，直接运行所有 Hook。
 
 ### 执行流程
 
