@@ -83,10 +83,11 @@ export class AgentFramework {
     // 3. Parallel Scheduler
     this.scheduler = new ParallelScheduler(this.router);
 
-    // 4. Skill System
+    // 4. Skill System（loader 与 injector 共享同一个 SkillLoader 实例）
+    const skillLoader = new SkillLoader();
     this.skills = {
-      loader: new SkillLoader(),
-      injector: new SkillInjector(new SkillLoader()),
+      loader: skillLoader,
+      injector: new SkillInjector(skillLoader),
     };
 
     // 5. SubAgent Spawner
